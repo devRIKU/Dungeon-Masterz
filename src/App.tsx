@@ -32,7 +32,7 @@ import {
   History,
   Sparkles
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 
 const garbleText = (text: string, strength: number) => {
   if (strength >= 1) return text;
@@ -98,6 +98,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!auth) return;
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
     });

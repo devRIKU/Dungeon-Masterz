@@ -2,17 +2,19 @@ import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, Auth } from 'firebase/auth';
 import { getFirestore, Firestore, doc, getDocFromServer } from 'firebase/firestore';
 
-export let app: FirebaseApp;
-export let auth: Auth;
-export let db: Firestore;
-export let googleProvider: GoogleAuthProvider;
+export let app: FirebaseApp | null = null;
+export let auth: Auth | null = null;
+export let db: Firestore | null = null;
+export let googleProvider: GoogleAuthProvider | null = null;
 
 export const initializeFirebase = async () => {
   if (app) return;
   try {
     const res = await fetch('/api/config');
+    if (!res.ok) throw new Error(`Failed to fetch config: ${res.statusText}`);
     const data = await res.json();
-    if (data.firebaseConfig) {
+    
+    if (data.firebaseConfig && data.firebaseConfig.apiKey) {
       app = initializeApp(data.firebaseConfig);
       auth = getAuth(app);
       db = getFirestore(app, data.firebaseConfig.firestoreDatabaseId);
@@ -27,7 +29,7 @@ export const initializeFirebase = async () => {
         }
       }
     } else {
-      console.error("Firebase config not found from backend.");
+      console.warn("Firebase config not found or incomplete from backend. App will run in limited mode.");
     }
   } catch (e) {
     console.error("Failed to initialize Firebase", e);
@@ -35,6 +37,6 @@ export const initializeFirebase = async () => {
 };
 
 export const signInWithGoogle = () => {
-  if (!auth || !googleProvider) throw new Error("Firebase not initialized");
+  if (!auth || !googleProvider) throw new Error("Firebase not initialized or configured");
   return signInWithPopup(auth, googleProvider);
 };
