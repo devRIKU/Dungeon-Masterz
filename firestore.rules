@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    // Collection: games
+    // Document ID: auto-generated or room code
+    // Fields:
+    //   - hostId: string (required)
+    //   - status: string (required, lobby/active/ended)
+    //   - players: list of maps (required)
+    //   - history: list of maps (optional)
+    //   - currentOptions: list of maps (optional)
+    //   - currentText: string (optional)
+    //   - isGenerating: bool (optional)
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "sannivachatterjee25@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidGame(data) {
+      return data.hostId is string &&
+             data.status in ['lobby', 'active', 'ended'] &&
+             data.players is list &&
+             (data.signalStrength == null || data.signalStrength is number);
+    }
+
+    function isValidChatMessage(data) {
+      return data.senderId is string &&
+             data.senderName is string &&
+             data.text is string &&
+             data.text.size() < 1000 &&
+             data.timestamp is number;
+    }
+
+    function isValidStoryNode(data) {
+      return data.text is string &&
+             data.timestamp is number &&
+             (data.imageUrl == null || data.imageUrl is string);
+    }
+
+    match /games/{gameId} {
+      // Anyone authenticated can read a game if they have the code
+      allow read: if isAuthenticated();
+      
+      // Only the host can create a game
+      allow create: if isAuthenticated() && 
+                    request.resource.data.hostId == request.auth.uid &&
+                    isValidGame(request.resource.data);
+      
+      // Players can update their own presence, host can update everything
+      // Allow any authenticated user to update the game state for multiplayer choices
+      // We use a loose update rule for the prototype to allow players to join and make choices
+      allow update: if isAuthenticated() && 
+                    (request.auth.uid == resource.data.hostId || 
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['players', 'currentOptions', 'currentText', 'isGenerating', 'signalStrength', 'npcs', 'isCompactOptions', 'theme']));
+
+      // Chat subcollection
+      match /chat/{messageId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && 
+                      request.resource.data.senderId == request.auth.uid &&
+                      isValidChatMessage(request.resource.data);
+      }
+
+      // History subcollection
+      match /history/{nodeId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && 
+                      isValidStoryNode(request.resource.data);
+      }
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+  }
+}

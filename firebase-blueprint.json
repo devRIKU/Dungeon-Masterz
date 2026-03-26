@@ -1,0 +1,93 @@
+{
+  "entities": {
+    "Game": {
+      "title": "Game",
+      "description": "A D&D game session.",
+      "type": "object",
+      "properties": {
+        "hostId": { "type": "string", "description": "UID of the host." },
+        "status": { "type": "string", "enum": ["lobby", "active", "ended"] },
+        "players": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "uid": { "type": "string" },
+              "displayName": { "type": "string" },
+              "photoURL": { "type": "string" },
+              "isHost": { "type": "boolean" },
+              "hometown": { "type": "string" },
+              "fear": { "type": "string" },
+              "characterArtUrl": { "type": "string" }
+            }
+          }
+        },
+        "currentText": { "type": "string" },
+        "currentOptions": { "type": "array" },
+        "isGenerating": { "type": "boolean" },
+        "signalStrength": { "type": "number" },
+        "isCompactOptions": { "type": "boolean" },
+        "theme": { "type": "string", "enum": ["80s", "fantasy", "cyberpunk", "horror"] },
+        "customSetting": { "type": "string" },
+        "isHardMode": { "type": "boolean" },
+        "isPermadeath": { "type": "boolean" },
+        "npcs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "photoURL": { "type": "string" },
+              "isNearby": { "type": "boolean" }
+            }
+          }
+        }
+      },
+      "required": ["hostId", "status", "players"]
+    },
+    "StoryNode": {
+      "title": "StoryNode",
+      "description": "A node in the story history.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "choices": { "type": "array" },
+        "timestamp": { "type": "number" },
+        "authorId": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "choiceMade": { "type": "string" }
+      },
+      "required": ["text", "timestamp"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A message sent in the game chat.",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "isNPC": { "type": "boolean" }
+      },
+      "required": ["senderId", "senderName", "text", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/games/{gameId}": {
+      "schema": "Game",
+      "description": "Active and past game sessions."
+    },
+    "/games/{gameId}/chat/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Messages for a specific game room."
+    },
+    "/games/{gameId}/history/{nodeId}": {
+      "schema": "StoryNode",
+      "description": "History nodes for a specific game."
+    }
+  }
+}

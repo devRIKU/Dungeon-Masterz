@@ -1,0 +1,5 @@
+{
+  "name": "Dungeon Master AI",
+  "description": "A Dungeons & Dragons inspired dynamic story generator with real-time multiplayer support.",
+  "requestFramePermissions": []
+}
