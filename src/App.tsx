@@ -57,6 +57,7 @@ export default function App() {
   const [showTutorial, setShowTutorial] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isPartyOpen, setIsPartyOpen] = useState(false);
+  const [isAdventureSettingsOpen, setIsAdventureSettingsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
@@ -487,21 +488,27 @@ export default function App() {
                   <>
                     <div className="space-y-3">
                       <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Adventure Theme</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {(['80s', 'fantasy', 'cyberpunk', 'horror'] as const).map((t) => (
-                          <button
-                            key={t}
-                            onClick={() => updateGameStateInFirestore(roomId, { theme: t })}
-                            className={cn(
-                              "py-3 rounded-2xl border font-display font-bold text-[10px] uppercase tracking-widest transition-all",
-                              (gameState?.theme || '80s') === t 
-                                ? "bg-accent border-accent text-white shadow-lg shadow-accent/20" 
-                                : "bg-ink/5 border-border text-ink/40 hover:border-accent/30"
-                            )}
-                          >
-                            {t}
-                          </button>
-                        ))}
+                      <div className="relative">
+                        <select
+                          value={gameState?.theme || '80s'}
+                          onChange={(e) => updateGameStateInFirestore(roomId, { theme: e.target.value })}
+                          className="w-full appearance-none bg-bg border border-border rounded-2xl px-4 py-3 pr-10 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all font-medium text-ink"
+                        >
+                          {[
+                            '80s', 'Fantasy', 'Cyberpunk', 'Horror', 'Sci-Fi', 
+                            'Post-Apocalyptic', 'Steampunk', 'Western', 'Noir', 
+                            'Mystery', 'Superhero', 'Historical', 'Space Opera', 
+                            'Lovecraftian', 'High Fantasy', 'Dark Fantasy', 
+                            'Urban Fantasy', 'Grimdark', 'Cozy', 'Comedy'
+                          ].map((t) => (
+                            <option key={t} value={t}>{t}</option>
+                          ))}
+                        </select>
+                        <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-ink/40">
+                          <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                            <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path>
+                          </svg>
+                        </div>
                       </div>
                     </div>
 
@@ -967,158 +974,196 @@ export default function App() {
                   </p>
                 </div>
 
-                <div className="w-full max-w-xl p-8 glass rounded-3xl border border-border space-y-8 text-left shadow-2xl">
-                  <div className="space-y-6">
-                    <h3 className="text-xl font-display font-bold flex items-center gap-3">
-                      <Shield className="w-5 h-5 text-accent" /> Character Profile
-                    </h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Character Name</label>
-                        <input 
-                          type="text" 
-                          placeholder="Your Name"
-                          defaultValue={gameState.players.find(p => p.uid === user.uid)?.displayName || ''}
-                          onBlur={(e) => saveQuiz(
-                            gameState.players.find(p => p.uid === user.uid)?.hometown || '', 
-                            gameState.players.find(p => p.uid === user.uid)?.fear || '',
-                            e.target.value
-                          )}
-                          className="w-full bg-ink/5 border border-border rounded-2xl px-4 py-3 focus:outline-none focus:border-accent/50 transition-all font-medium"
-                        />
+                <div className="w-full max-w-2xl space-y-6 text-left">
+                  {/* Character Profile Section */}
+                  <div className="glass rounded-3xl border border-border overflow-hidden shadow-2xl">
+                    <div className="p-6 md:p-8 bg-ink/5 border-b border-border flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-accent/20 flex items-center justify-center text-accent">
+                        <Shield className="w-6 h-6" />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Origin / Hometown</label>
-                        <input 
-                          type="text" 
-                          placeholder="Where are you from?"
-                          defaultValue={gameState.players.find(p => p.uid === user.uid)?.hometown || ''}
-                          onBlur={(e) => saveQuiz(
-                            e.target.value, 
-                            gameState.players.find(p => p.uid === user.uid)?.fear || '',
-                            gameState.players.find(p => p.uid === user.uid)?.displayName
-                          )}
-                          className="w-full bg-ink/5 border border-border rounded-2xl px-4 py-3 focus:outline-none focus:border-accent/50 transition-all font-medium"
-                        />
+                      <div>
+                        <h3 className="text-xl font-display font-bold">Character Profile</h3>
+                        <p className="text-xs text-ink/50 font-medium">Define your hero's identity</p>
                       </div>
                     </div>
+                    <div className="p-6 md:p-8 space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Character Name</label>
+                          <input 
+                            type="text" 
+                            placeholder="Your Name"
+                            defaultValue={gameState.players.find(p => p.uid === user.uid)?.displayName || ''}
+                            onBlur={(e) => saveQuiz(
+                              gameState.players.find(p => p.uid === user.uid)?.hometown || '', 
+                              gameState.players.find(p => p.uid === user.uid)?.fear || '',
+                              e.target.value
+                            )}
+                            className="w-full bg-bg border border-border rounded-2xl px-4 py-3 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all font-medium"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Origin / Hometown</label>
+                          <input 
+                            type="text" 
+                            placeholder="Where are you from?"
+                            defaultValue={gameState.players.find(p => p.uid === user.uid)?.hometown || ''}
+                            onBlur={(e) => saveQuiz(
+                              e.target.value, 
+                              gameState.players.find(p => p.uid === user.uid)?.fear || '',
+                              gameState.players.find(p => p.uid === user.uid)?.displayName
+                            )}
+                            className="w-full bg-bg border border-border rounded-2xl px-4 py-3 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all font-medium"
+                          />
+                        </div>
+                      </div>
 
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Greatest Fear</label>
-                      <input 
-                        type="text" 
-                        placeholder="What haunts your dreams?"
-                        defaultValue={gameState.players.find(p => p.uid === user.uid)?.fear || ''}
-                        onBlur={(e) => saveQuiz(
-                          gameState.players.find(p => p.uid === user.uid)?.hometown || '', 
-                          e.target.value,
-                          gameState.players.find(p => p.uid === user.uid)?.displayName,
-                          gameState.players.find(p => p.uid === user.uid)?.characterArtUrl
-                        )}
-                        className="w-full bg-ink/5 border border-border rounded-2xl px-4 py-3 focus:outline-none focus:border-accent/50 transition-all font-medium"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Character Portrait (URL)</label>
-                      <div className="flex gap-3">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Greatest Fear</label>
                         <input 
                           type="text" 
-                          placeholder="https://..."
-                          defaultValue={gameState.players.find(p => p.uid === user.uid)?.characterArtUrl || ''}
+                          placeholder="What haunts your dreams?"
+                          defaultValue={gameState.players.find(p => p.uid === user.uid)?.fear || ''}
                           onBlur={(e) => saveQuiz(
                             gameState.players.find(p => p.uid === user.uid)?.hometown || '', 
-                            gameState.players.find(p => p.uid === user.uid)?.fear || '',
+                            e.target.value,
                             gameState.players.find(p => p.uid === user.uid)?.displayName,
-                            e.target.value
+                            gameState.players.find(p => p.uid === user.uid)?.characterArtUrl
                           )}
-                          className="flex-1 bg-ink/5 border border-border rounded-2xl px-4 py-3 focus:outline-none focus:border-accent/50 transition-all font-medium"
+                          className="w-full bg-bg border border-border rounded-2xl px-4 py-3 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all font-medium"
                         />
-                        <button
-                          onClick={() => {
-                            generateCharacterArt();
-                            soundManager.playClick();
-                          }}
-                          disabled={isGeneratingArt}
-                          className="px-6 bg-accent text-white font-display font-bold rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-accent/20"
-                        >
-                          {isGeneratingArt ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                          <span className="hidden sm:inline">Generate</span>
-                        </button>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Character Portrait (URL)</label>
+                        <div className="flex gap-3">
+                          <input 
+                            type="text" 
+                            placeholder="https://..."
+                            defaultValue={gameState.players.find(p => p.uid === user.uid)?.characterArtUrl || ''}
+                            onBlur={(e) => saveQuiz(
+                              gameState.players.find(p => p.uid === user.uid)?.hometown || '', 
+                              gameState.players.find(p => p.uid === user.uid)?.fear || '',
+                              gameState.players.find(p => p.uid === user.uid)?.displayName,
+                              e.target.value
+                            )}
+                            className="flex-1 bg-bg border border-border rounded-2xl px-4 py-3 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all font-medium"
+                          />
+                          <button
+                            onClick={() => {
+                              generateCharacterArt();
+                              soundManager.playClick();
+                            }}
+                            disabled={isGeneratingArt}
+                            className="px-6 bg-accent text-white font-display font-bold rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-accent/20"
+                          >
+                            {isGeneratingArt ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                            <span className="hidden sm:inline">Generate</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
 
+                  {/* Adventure Settings Section */}
                   {gameState.hostId === user.uid && (
-                    <div className="space-y-6 pt-8 border-t border-border">
-                      <h3 className="text-xl font-display font-bold flex items-center gap-3">
-                        <Settings className="w-5 h-5 text-accent" /> Adventure Settings
-                      </h3>
-                      
-                      <div className="space-y-6">
-                        <div className="space-y-3">
-                          <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Genre & Atmosphere</label>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            {(['80s', 'fantasy', 'cyberpunk', 'horror'] as const).map((t) => (
-                              <button
-                                key={t}
-                                onClick={() => {
-                                  updateGameStateInFirestore(roomId, { theme: t });
-                                  soundManager.playClick();
-                                }}
-                                className={cn(
-                                  "py-3 rounded-2xl border font-display font-bold text-[10px] uppercase tracking-widest transition-all",
-                                  (gameState?.theme || '80s') === t 
-                                    ? "bg-accent border-accent text-white shadow-lg shadow-accent/20" 
-                                    : "bg-ink/5 border-border text-ink/40 hover:border-accent/30"
-                                )}
-                              >
-                                {t}
-                              </button>
-                            ))}
+                    <div className="glass rounded-3xl border border-border overflow-hidden shadow-2xl">
+                      <button 
+                        onClick={() => setIsAdventureSettingsOpen(!isAdventureSettingsOpen)}
+                        className="w-full p-6 md:p-8 bg-ink/5 flex items-center justify-between group transition-colors hover:bg-ink/10"
+                      >
+                        <div className="flex items-center gap-4 text-left">
+                          <div className="w-12 h-12 rounded-2xl bg-accent/20 flex items-center justify-center text-accent group-hover:scale-110 transition-transform">
+                            <Settings className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <h3 className="text-xl font-display font-bold">Adventure Settings</h3>
+                            <p className="text-xs text-ink/50 font-medium">Configure the world (Host only)</p>
                           </div>
                         </div>
-
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Custom Setting</label>
-                          <textarea
-                            value={gameState?.customSetting || ''}
-                            onChange={(e) => updateGameStateInFirestore(roomId, { customSetting: e.target.value })}
-                            placeholder="Describe your world... (e.g. A floating city in the clouds)"
-                            className="w-full bg-ink/5 border border-border rounded-2xl p-4 text-sm focus:outline-none focus:border-accent/50 transition-all h-24 resize-none font-medium"
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <button
-                            onClick={() => {
-                              updateGameStateInFirestore(roomId, { isHardMode: !gameState?.isHardMode });
-                              soundManager.playClick();
-                            }}
-                            className={cn(
-                              "flex items-center justify-center gap-3 p-4 rounded-2xl border transition-all font-display font-bold text-[10px] uppercase tracking-widest",
-                              gameState?.isHardMode ? "bg-accent/10 border-accent text-accent" : "bg-ink/5 border-border text-ink/40"
-                            )}
+                        <ChevronRight className={cn("w-6 h-6 text-ink/40 transition-transform duration-300", isAdventureSettingsOpen ? "rotate-90" : "")} />
+                      </button>
+                      
+                      <AnimatePresence>
+                        {isAdventureSettingsOpen && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="border-t border-border overflow-hidden"
                           >
-                            <Sword className="w-4 h-4" />
-                            Hard Mode
-                          </button>
-                          <button
-                            onClick={() => {
-                              updateGameStateInFirestore(roomId, { isPermadeath: !gameState?.isPermadeath });
-                              soundManager.playClick();
-                            }}
-                            className={cn(
-                              "flex items-center justify-center gap-3 p-4 rounded-2xl border transition-all font-display font-bold text-[10px] uppercase tracking-widest",
-                              gameState?.isPermadeath ? "bg-accent/10 border-accent text-accent" : "bg-ink/5 border-border text-ink/40"
-                            )}
-                          >
-                            <Shield className="w-4 h-4" />
-                            Permadeath
-                          </button>
-                        </div>
-                      </div>
+                            <div className="p-6 md:p-8 space-y-8 bg-bg/50">
+                              <div className="space-y-3">
+                                <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Genre & Atmosphere</label>
+                                <div className="relative">
+                                  <select
+                                    value={gameState?.theme || '80s'}
+                                    onChange={(e) => {
+                                      updateGameStateInFirestore(roomId, { theme: e.target.value });
+                                      soundManager.playClick();
+                                    }}
+                                    className="w-full appearance-none bg-bg border border-border rounded-2xl px-4 py-3 pr-10 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all font-medium text-ink"
+                                  >
+                                    {[
+                                      '80s', 'Fantasy', 'Cyberpunk', 'Horror', 'Sci-Fi', 
+                                      'Post-Apocalyptic', 'Steampunk', 'Western', 'Noir', 
+                                      'Mystery', 'Superhero', 'Historical', 'Space Opera', 
+                                      'Lovecraftian', 'High Fantasy', 'Dark Fantasy', 
+                                      'Urban Fantasy', 'Grimdark', 'Cozy', 'Comedy'
+                                    ].map((t) => (
+                                      <option key={t} value={t}>{t}</option>
+                                    ))}
+                                  </select>
+                                  <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-ink/40">
+                                    <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                                      <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path>
+                                    </svg>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Custom Setting</label>
+                                <textarea
+                                  value={gameState?.customSetting || ''}
+                                  onChange={(e) => updateGameStateInFirestore(roomId, { customSetting: e.target.value })}
+                                  placeholder="Describe your world... (e.g. A floating city in the clouds)"
+                                  className="w-full bg-bg border border-border rounded-2xl p-4 text-sm focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all h-24 resize-none font-medium"
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4">
+                                <button
+                                  onClick={() => {
+                                    updateGameStateInFirestore(roomId, { isHardMode: !gameState?.isHardMode });
+                                    soundManager.playClick();
+                                  }}
+                                  className={cn(
+                                    "flex items-center justify-center gap-3 p-4 rounded-2xl border transition-all font-display font-bold text-[10px] uppercase tracking-widest",
+                                    gameState?.isHardMode ? "bg-accent/10 border-accent text-accent shadow-inner" : "bg-bg border-border text-ink/40 hover:bg-ink/5"
+                                  )}
+                                >
+                                  <Sword className="w-4 h-4" />
+                                  Hard Mode
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    updateGameStateInFirestore(roomId, { isPermadeath: !gameState?.isPermadeath });
+                                    soundManager.playClick();
+                                  }}
+                                  className={cn(
+                                    "flex items-center justify-center gap-3 p-4 rounded-2xl border transition-all font-display font-bold text-[10px] uppercase tracking-widest",
+                                    gameState?.isPermadeath ? "bg-accent/10 border-accent text-accent shadow-inner" : "bg-bg border-border text-ink/40 hover:bg-ink/5"
+                                  )}
+                                >
+                                  <Shield className="w-4 h-4" />
+                                  Permadeath
+                                </button>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   )}
                 </div>

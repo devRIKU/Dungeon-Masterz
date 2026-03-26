@@ -53,7 +53,7 @@ export interface GameState {
   signalStrength: number; // 0 to 1, where 0 is jammed/too far
   npcs?: NPC[];
   isCompactOptions?: boolean;
-  theme?: '80s' | 'fantasy' | 'cyberpunk' | 'horror';
+  theme?: string;
   customSetting?: string;
   isHardMode?: boolean;
   isPermadeath?: boolean;
