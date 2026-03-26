@@ -1,5 +1,5 @@
 {
-  "name": "Dungeon Master AI",
-  "description": "A Dungeons & Dragons inspired dynamic story generator with real-time multiplayer support.",
+  "name": "Runescribe",
+  "description": "An AI-powered, real-time multiplayer adventure engine for infinite supernatural storytelling.",
   "requestFramePermissions": []
 }

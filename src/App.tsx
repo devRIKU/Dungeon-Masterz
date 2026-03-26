@@ -40,6 +40,8 @@ const garbleText = (text: string, strength: number) => {
 };
 
 export default function App() {
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [isOptionsCollapsed, setIsOptionsCollapsed] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -79,6 +81,10 @@ export default function App() {
     
     window.speechSynthesis.speak(utterance);
   };
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('light', theme === 'light');
+  }, [theme]);
 
   useEffect(() => {
     const hasSeenTutorial = localStorage.getItem('hasSeenTutorial');
@@ -139,8 +145,11 @@ export default function App() {
     }
   }, [gameState?.history, gameState?.currentText]);
 
+  const [isCreatingGame, setIsCreatingGame] = useState(false);
+
   const createGame = async () => {
     if (!user) return;
+    setIsCreatingGame(true);
     const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
     const player: Player = {
       uid: user.uid,
@@ -157,6 +166,8 @@ export default function App() {
       console.error(err);
       setError("Failed to create game.");
       soundManager.playError();
+    } finally {
+      setIsCreatingGame(false);
     }
   };
 
@@ -380,41 +391,68 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] text-[#e0e0e0] flex flex-col items-center justify-center p-4 font-serif relative overflow-hidden">
+      <div className="min-h-screen bg-bg text-ink flex flex-col items-center justify-center p-4 font-sans relative overflow-hidden transition-colors duration-500">
         <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
-          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-red-900/30 blur-[100px] rounded-full" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-900/30 blur-[100px] rounded-full" />
+          <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-accent/20 blur-[120px] rounded-full" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-blue-900/20 blur-[120px] rounded-full" />
         </div>
 
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          className="z-10 text-center max-w-md w-full"
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="z-10 text-center max-w-lg w-full"
         >
-          <div className="mb-8 flex justify-center">
-            <div className="p-4 bg-red-950/30 border border-red-900/50 rounded-2xl shadow-2xl shadow-red-900/20">
-              <Sword className="w-16 h-16 text-red-500" />
-            </div>
+          <div className="mb-10 flex justify-center">
+            <motion.div 
+              animate={{ rotate: [0, 5, -5, 0] }}
+              transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
+              className="p-6 glass rounded-3xl shadow-2xl shadow-accent/10"
+            >
+              <Sparkles className="w-20 h-20 text-accent" />
+            </motion.div>
           </div>
-          <h1 className="text-5xl font-bold mb-4 tracking-tighter bg-gradient-to-b from-white to-gray-500 bg-clip-text text-transparent uppercase animate-glitch cursor-default">
-            Dungeon Master AI
+          
+          <h1 className="text-7xl font-display font-bold mb-6 tracking-tight bg-gradient-to-b from-ink to-ink/40 bg-clip-text text-transparent uppercase animate-glitch cursor-default">
+            Runescribe
           </h1>
-          <p className="text-gray-400 mb-12 text-lg leading-relaxed italic">
+          
+          <p className="text-ink/60 mb-12 text-xl leading-relaxed font-light tracking-wide px-4">
             "Step into the realm of infinite stories, where every choice weaves a new destiny."
           </p>
           
-          <button
-            onClick={() => {
-              signInWithGoogle();
-              soundManager.playClick();
-            }}
-            onMouseEnter={() => soundManager.playHover()}
-            className="w-full py-4 px-6 bg-white text-black font-bold rounded-xl hover:bg-gray-200 transition-all flex items-center justify-center gap-3 group shadow-xl shadow-white/5"
-          >
-            <Shield className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-            Begin Your Journey
-          </button>
+          <div className="space-y-4 px-4">
+            <button
+              onClick={() => {
+                signInWithGoogle();
+                soundManager.playClick();
+              }}
+              onMouseEnter={() => soundManager.playHover()}
+              className="w-full py-5 px-8 bg-ink text-bg font-display font-bold text-lg rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 group shadow-2xl shadow-ink/10"
+            >
+              <Shield className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+              Begin Your Journey
+            </button>
+            
+            <div className="flex items-center justify-center gap-6 pt-8 opacity-40">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em]">
+                <Users className="w-4 h-4" /> Multiplayer
+              </div>
+              <div className="w-1 h-1 bg-ink rounded-full" />
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em]">
+                <Sparkles className="w-4 h-4" /> AI Powered
+              </div>
+            </div>
+          </div>
         </motion.div>
+
+        {/* Theme Toggle on Login Screen */}
+        <button 
+          onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+          className="fixed bottom-8 right-8 p-4 glass rounded-full hover:scale-110 transition-all z-50"
+        >
+          {theme === 'dark' ? <Sparkles className="w-5 h-5" /> : <Shield className="w-5 h-5" />}
+        </button>
       </div>
     );
   }
@@ -423,43 +461,42 @@ export default function App() {
     <>
       <AnimatePresence>
         {isSettingsOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-bg/80 backdrop-blur-sm">
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-md bg-[#0a0a0a] border border-gray-800 rounded-3xl p-8 space-y-6"
+              className="w-full max-w-md bg-bg border border-border rounded-3xl p-8 space-y-8 shadow-2xl"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold flex items-center gap-2">
-                  <Settings className="w-5 h-5" /> Adventure Settings
+                <h3 className="text-xl font-display font-bold flex items-center gap-3">
+                  <Settings className="w-5 h-5 text-accent" /> Adventure Settings
                 </h3>
-                <button onClick={() => setIsSettingsOpen(false)} className="p-2 hover:bg-gray-800 rounded-full">
+                <button onClick={() => setIsSettingsOpen(false)} className="p-2 hover:bg-ink/5 rounded-full transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {!gameState ? (
-                  <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 opacity-50">
+                  <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 opacity-30">
                     <Settings className="w-12 h-12" />
-                    <p className="text-lg font-serif italic">No active adventure settings.</p>
-                    <p className="text-sm">Join or create an adventure to customize your experience.</p>
+                    <p className="text-lg font-display font-bold">No active adventure.</p>
                   </div>
                 ) : (
                   <>
-                    <div>
-                      <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Adventure Theme</label>
-                      <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Adventure Theme</label>
+                      <div className="grid grid-cols-2 gap-2">
                         {(['80s', 'fantasy', 'cyberpunk', 'horror'] as const).map((t) => (
                           <button
                             key={t}
                             onClick={() => updateGameStateInFirestore(roomId, { theme: t })}
                             className={cn(
-                              "py-3 rounded-xl border text-sm font-bold capitalize transition-all",
+                              "py-3 rounded-2xl border font-display font-bold text-[10px] uppercase tracking-widest transition-all",
                               (gameState?.theme || '80s') === t 
-                                ? "bg-red-600 border-red-500 text-white" 
-                                : "bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700"
+                                ? "bg-accent border-accent text-white shadow-lg shadow-accent/20" 
+                                : "bg-ink/5 border-border text-ink/40 hover:border-accent/30"
                             )}
                           >
                             {t}
@@ -468,13 +505,13 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Custom Setting / Prompt</label>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Custom Setting</label>
                       <textarea
                         value={gameState?.customSetting || ''}
                         onChange={(e) => updateGameStateInFirestore(roomId, { customSetting: e.target.value })}
-                        placeholder="e.g. Set in a floating city, or everyone is a cat..."
-                        className="w-full mt-2 bg-gray-900 border border-gray-800 rounded-xl p-3 text-sm focus:outline-none focus:border-red-500 transition-colors h-24 resize-none"
+                        placeholder="e.g. Set in a floating city..."
+                        className="w-full bg-ink/5 border border-border rounded-2xl p-4 text-sm focus:outline-none focus:border-accent/50 transition-all h-24 resize-none font-medium"
                       />
                     </div>
 
@@ -482,22 +519,22 @@ export default function App() {
                       <button
                         onClick={() => updateGameStateInFirestore(roomId, { isHardMode: !gameState?.isHardMode })}
                         className={cn(
-                          "flex flex-col items-center gap-2 p-4 rounded-xl border transition-all",
-                          gameState?.isHardMode ? "bg-red-950/30 border-red-500 text-red-500" : "bg-gray-900 border-gray-800 text-gray-500"
+                          "flex flex-col items-center gap-3 p-4 rounded-2xl border transition-all font-display font-bold text-[10px] uppercase tracking-widest",
+                          gameState?.isHardMode ? "bg-accent/10 border-accent text-accent" : "bg-ink/5 border-border text-ink/40"
                         )}
                       >
                         <Sword className="w-5 h-5" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">Hard Mode</span>
+                        Hard Mode
                       </button>
                       <button
                         onClick={() => updateGameStateInFirestore(roomId, { isPermadeath: !gameState?.isPermadeath })}
                         className={cn(
-                          "flex flex-col items-center gap-2 p-4 rounded-xl border transition-all",
-                          gameState?.isPermadeath ? "bg-red-950/30 border-red-500 text-red-500" : "bg-gray-900 border-gray-800 text-gray-500"
+                          "flex flex-col items-center gap-3 p-4 rounded-2xl border transition-all font-display font-bold text-[10px] uppercase tracking-widest",
+                          gameState?.isPermadeath ? "bg-accent/10 border-accent text-accent" : "bg-ink/5 border-border text-ink/40"
                         )}
                       >
                         <Shield className="w-5 h-5" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">Permadeath</span>
+                        Permadeath
                       </button>
                     </div>
                   </>
@@ -506,7 +543,7 @@ export default function App() {
 
               <button
                 onClick={() => setIsSettingsOpen(false)}
-                className="w-full py-4 bg-white text-black rounded-xl font-bold hover:bg-gray-200 transition-colors"
+                className="w-full py-4 bg-ink text-bg rounded-2xl font-display font-bold hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl"
               >
                 Save Changes
               </button>
@@ -517,58 +554,56 @@ export default function App() {
 
       <AnimatePresence>
         {isHistoryOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-bg/80 backdrop-blur-sm">
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 20, opacity: 0 }}
-              className="w-full max-w-4xl h-[80vh] bg-[#0a0a0a] border border-gray-800 rounded-3xl flex flex-col overflow-hidden"
+              className="w-full max-w-4xl h-[80vh] bg-bg border border-border rounded-3xl flex flex-col overflow-hidden shadow-2xl"
             >
-              <div className="p-6 border-b border-gray-800 flex items-center justify-between bg-black/40">
-                <h3 className="text-xl font-bold flex items-center gap-2">
-                  <History className="w-5 h-5" /> Adventure History
+              <div className="p-6 border-b border-border flex items-center justify-between bg-ink/5">
+                <h3 className="text-xl font-display font-bold flex items-center gap-3">
+                  <History className="w-5 h-5 text-accent" /> Adventure History
                 </h3>
-                <button onClick={() => setIsHistoryOpen(false)} className="p-2 hover:bg-gray-800 rounded-full">
+                <button onClick={() => setIsHistoryOpen(false)} className="p-2 hover:bg-ink/5 rounded-full transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-8 space-y-12">
+              <div className="flex-1 overflow-y-auto p-8 space-y-16">
                 {!gameState ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-50">
+                  <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-30">
                     <History className="w-12 h-12" />
-                    <p className="text-lg font-serif italic">No active adventure history to display.</p>
-                    <p className="text-sm">Join or create an adventure to start recording your journey.</p>
+                    <p className="text-lg font-display font-bold">No history available.</p>
                   </div>
                 ) : gameState.history.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-50">
+                  <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-30">
                     <ScrollText className="w-12 h-12" />
-                    <p className="text-lg font-serif italic">The scroll is empty...</p>
-                    <p className="text-sm">Your journey has not yet begun.</p>
+                    <p className="text-lg font-display font-bold">The scroll is empty...</p>
                   </div>
                 ) : (
                   gameState.history.map((node, idx) => (
-                    <div key={node.id} className="space-y-4">
-                      <div className="flex items-center gap-4 text-xs font-bold text-gray-500 uppercase tracking-widest">
-                        <span className="w-8 h-px bg-gray-800" />
+                    <div key={node.id} className="space-y-8">
+                      <div className="flex items-center gap-6 text-[10px] font-display font-bold text-ink/20 uppercase tracking-[0.3em]">
+                        <span className="w-12 h-px bg-border" />
                         Chapter {idx + 1}
-                        <span className="flex-1 h-px bg-gray-800" />
+                        <span className="flex-1 h-px bg-border" />
                       </div>
                       
-                      <div className="grid lg:grid-cols-2 gap-8 items-start">
-                        <div className="space-y-4">
-                          <p className="text-lg leading-relaxed text-gray-300 font-serif italic">
+                      <div className="grid lg:grid-cols-2 gap-12 items-start">
+                        <div className="space-y-6">
+                          <p className="text-xl leading-relaxed text-ink/80 font-medium italic tracking-tight">
                             {node.text}
                           </p>
                           {node.choiceMade && (
-                            <div className="flex items-center gap-2 text-red-500 font-bold text-sm">
+                            <div className="flex items-center gap-3 text-accent font-display font-bold text-xs uppercase tracking-widest">
                               <ChevronRight className="w-4 h-4" />
                               Action: {node.choiceMade}
                             </div>
                           )}
                         </div>
                         {node.imageUrl && (
-                          <div className="aspect-video rounded-xl overflow-hidden border border-gray-800">
+                          <div className="aspect-video rounded-2xl overflow-hidden border border-border shadow-lg">
                             <img src={node.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                           </div>
                         )}
@@ -586,92 +621,88 @@ export default function App() {
 
   if (!gameState) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] text-[#e0e0e0] p-6 font-serif flex flex-col items-center justify-center">
-        <div className="max-w-md w-full space-y-8">
+      <div className="min-h-screen bg-bg text-ink p-6 font-sans flex flex-col items-center justify-center transition-colors duration-500">
+        <div className="max-w-md w-full space-y-10">
           <div className="flex items-center justify-between mb-12">
-            <div className="flex items-center gap-3">
-              <img src={user.photoURL || ''} alt="" className="w-10 h-10 rounded-full border border-gray-800" />
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <img src={user.photoURL || ''} alt="" className="w-12 h-12 rounded-2xl border border-border shadow-lg" />
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-bg" />
+              </div>
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Adventurer</p>
-                <p className="font-bold">{user.displayName}</p>
+                <p className="text-[10px] text-ink/40 uppercase tracking-[0.2em] font-bold font-display">Adventurer</p>
+                <p className="font-display font-bold text-lg">{user.displayName}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+                className="p-2.5 glass rounded-xl hover:scale-110 transition-all text-ink/60"
+              >
+                {theme === 'dark' ? <Sparkles className="w-5 h-5" /> : <Shield className="w-5 h-5" />}
+              </button>
               <button 
                 onClick={() => {
                   setIsHistoryOpen(true);
                   soundManager.playClick();
                 }}
-                onMouseEnter={() => soundManager.playHover()}
-                className="p-2 hover:bg-white/5 rounded-lg transition-colors text-gray-500"
-                title="History"
+                className="p-2.5 glass rounded-xl hover:scale-110 transition-all text-ink/60"
               >
                 <History className="w-5 h-5" />
-              </button>
-              <button 
-                onClick={() => {
-                  setIsSettingsOpen(true);
-                  soundManager.playClick();
-                }}
-                onMouseEnter={() => soundManager.playHover()}
-                className="p-2 hover:bg-white/5 rounded-lg transition-colors text-gray-500"
-                title="Settings"
-              >
-                <Settings className="w-5 h-5" />
               </button>
               <button 
                 onClick={() => {
                   auth.signOut();
                   soundManager.playClick();
                 }}
-                onMouseEnter={() => soundManager.playHover()}
-                className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+                className="p-2.5 glass rounded-xl hover:scale-110 transition-all text-ink/60"
               >
-                <LogOut className="w-5 h-5 text-gray-500" />
+                <LogOut className="w-5 h-5" />
               </button>
             </div>
           </div>
 
-          <div className="grid gap-4">
+          <div className="grid gap-6">
             <button
               onClick={() => {
                 createGame();
                 soundManager.playClick();
               }}
-              onMouseEnter={() => soundManager.playHover()}
-              className="group relative p-6 bg-[#111] border border-gray-800 rounded-2xl hover:border-red-900/50 transition-all text-left overflow-hidden"
+              disabled={isCreatingGame}
+              className="group relative p-8 glass rounded-3xl hover:border-accent/50 transition-all text-left overflow-hidden shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <Sword className="w-16 h-16" />
+              <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-20 transition-opacity">
+                {isCreatingGame ? <Loader2 className="w-24 h-24 animate-spin" /> : <Sparkles className="w-24 h-24" />}
               </div>
-              <h3 className="text-xl font-bold mb-1">New Adventure</h3>
-              <p className="text-sm text-gray-500">Embark on a personal quest through the unknown.</p>
+              <h3 className="text-2xl font-display font-bold mb-2">
+                {isCreatingGame ? "Forging Destiny..." : "New Adventure"}
+              </h3>
+              <p className="text-sm text-ink/50 leading-relaxed">Embark on a personal quest through the unknown. Forge your own destiny.</p>
             </button>
 
             <div className="relative py-4">
               <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-gray-800" />
+                <span className="w-full border-t border-border" />
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-[#0a0a0a] px-2 text-gray-500 font-bold tracking-widest">Or Join Party</span>
+              <div className="relative flex justify-center text-[10px] uppercase tracking-[0.3em]">
+                <span className="bg-bg px-4 text-ink/30 font-bold">Or Join Party</span>
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <input
                 type="text"
-                placeholder="Enter Room Code"
+                placeholder="ROOM CODE"
                 value={roomId}
                 onChange={(e) => setRoomId(e.target.value.toUpperCase())}
-                className="flex-1 bg-[#111] border border-gray-800 rounded-xl px-4 py-3 focus:outline-none focus:border-white/20 transition-colors uppercase tracking-widest font-mono"
+                className="flex-1 glass rounded-2xl px-6 py-4 focus:outline-none focus:border-accent/50 transition-colors uppercase tracking-[0.3em] font-display font-bold text-center"
               />
               <button
                 onClick={() => {
                   joinGame(roomId);
                   soundManager.playClick();
                 }}
-                onMouseEnter={() => soundManager.playHover()}
-                className="px-6 bg-white text-black font-bold rounded-xl hover:bg-gray-200 transition-all"
+                className="px-8 bg-ink text-bg font-display font-bold rounded-2xl hover:scale-[1.05] transition-all shadow-lg"
               >
                 Join
               </button>
@@ -684,50 +715,58 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-[#e0e0e0] font-serif flex flex-col h-screen overflow-hidden">
-      <header className="p-4 border-b border-gray-900 flex items-center justify-between bg-[#0a0a0a]/80 backdrop-blur-md z-20">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
+    <div className="min-h-screen bg-bg text-ink font-sans flex flex-col h-screen overflow-hidden transition-colors duration-300">
+      <header className="px-6 py-4 border-b border-border flex items-center justify-between bg-bg/80 backdrop-blur-md z-20">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center border border-accent/20">
+              <ScrollText className="w-6 h-6 text-accent" />
+            </div>
+            <h1 className="text-xl font-display font-bold tracking-tight hidden sm:block">Runescribe</h1>
+          </div>
+          
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-ink/5 rounded-full border border-border">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-xs font-bold tracking-widest uppercase font-mono">{roomId}</span>
-            <button onClick={copyRoomCode} className="ml-1 hover:text-white transition-colors">
+            <span className="text-[10px] font-display font-bold tracking-[0.2em] uppercase opacity-60">{roomId}</span>
+            <button onClick={copyRoomCode} className="ml-1 hover:text-accent transition-colors">
               {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
             </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-3">
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="p-2 sm:p-2.5 hover:bg-ink/5 rounded-xl border border-border transition-all"
+            title="Toggle Theme"
+          >
+            {theme === 'dark' ? <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" /> : <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />}
+          </button>
+          
           <button 
             onClick={() => setIsPartyOpen(true)}
-            className="lg:hidden p-2 hover:bg-white/5 rounded-lg transition-colors text-gray-500"
+            className="lg:hidden p-2 sm:p-2.5 hover:bg-ink/5 rounded-xl border border-border transition-all"
           >
-            <Users className="w-5 h-5" />
+            <Users className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
+          
           <button 
             onClick={() => setIsChatOpen(true)}
-            className="lg:hidden p-2 hover:bg-white/5 rounded-lg transition-colors text-gray-500"
+            className="lg:hidden p-2 sm:p-2.5 hover:bg-ink/5 rounded-xl border border-border transition-all"
           >
-            <MessageSquare className="w-5 h-5" />
+            <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
-          {gameState.status === 'active' && (
-            <button 
-              onClick={playStoryAudio}
-              disabled={isAudioLoading || gameState.isGenerating}
-              className="lg:hidden p-2 hover:bg-white/5 rounded-lg transition-colors text-red-500 disabled:opacity-50"
-            >
-              {isAudioLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Volume2 className="w-5 h-5" />}
-            </button>
-          )}
-          <div className="hidden sm:flex -space-x-2 overflow-hidden">
-            {gameState.players.map((p) => (
-              <img
-                key={p.uid}
-                src={p.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.uid}`}
-                title={p.displayName}
-                className="inline-block h-8 w-8 rounded-full ring-2 ring-[#0a0a0a] bg-gray-800"
-              />
-            ))}
-          </div>
+
+          <button
+            onClick={() => {
+              setGameState(null);
+              soundManager.playClick();
+            }}
+            className="p-2 sm:p-2.5 hover:bg-red-500/10 hover:text-red-500 rounded-xl border border-border transition-all"
+            title="Leave Game"
+          >
+            <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
         </div>
       </header>
 
@@ -909,29 +948,34 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden relative">
           <div 
             ref={scrollRef}
-            className="flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth"
+            className="flex-1 overflow-y-auto p-6 md:p-12 space-y-12 scroll-smooth"
           >
             {gameState.status === 'lobby' ? (
-              <div className="h-full flex flex-col items-center justify-center text-center space-y-6">
-                <ScrollText className="w-16 h-16 text-gray-700" />
-                <div className="space-y-2">
-                  <h2 className="text-3xl font-bold tracking-tight">The Gathering Room</h2>
-                  <p className="text-gray-500 max-w-xs mx-auto italic">
-                    Wait for your companions to join before the Dungeon Master begins the tale.
+              <div className="h-full flex flex-col items-center justify-center text-center space-y-8 py-12">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-accent/20 blur-3xl rounded-full" />
+                  <ScrollText className="w-20 h-20 text-accent relative z-10" />
+                </div>
+                
+                <div className="space-y-3">
+                  <h2 className="text-4xl font-display font-bold tracking-tight">The Gathering</h2>
+                  <p className="text-ink/60 max-w-sm mx-auto font-medium">
+                    Prepare your spirit. The Dungeon Master awaits the arrival of all companions.
                   </p>
                 </div>
 
-                <div className="w-full max-w-md p-6 bg-[#111] border border-gray-800 rounded-2xl space-y-6 text-left">
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-bold flex items-center gap-2">
-                      <Shield className="w-4 h-4 text-red-500" /> Character Quiz
+                <div className="w-full max-w-xl p-8 glass rounded-3xl border border-border space-y-8 text-left shadow-2xl">
+                  <div className="space-y-6">
+                    <h3 className="text-xl font-display font-bold flex items-center gap-3">
+                      <Shield className="w-5 h-5 text-accent" /> Character Profile
                     </h3>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Character Name</label>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Character Name</label>
                         <input 
                           type="text" 
                           placeholder="Your Name"
@@ -941,79 +985,81 @@ export default function App() {
                             gameState.players.find(p => p.uid === user.uid)?.fear || '',
                             e.target.value
                           )}
-                          className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 mt-1 focus:border-red-500 transition-colors"
+                          className="w-full bg-ink/5 border border-border rounded-2xl px-4 py-3 focus:outline-none focus:border-accent/50 transition-all font-medium"
                         />
                       </div>
-                      <div>
-                        <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Where are you from?</label>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Origin / Hometown</label>
                         <input 
                           type="text" 
-                          placeholder="Hometown"
+                          placeholder="Where are you from?"
                           defaultValue={gameState.players.find(p => p.uid === user.uid)?.hometown || ''}
                           onBlur={(e) => saveQuiz(
                             e.target.value, 
                             gameState.players.find(p => p.uid === user.uid)?.fear || '',
                             gameState.players.find(p => p.uid === user.uid)?.displayName
                           )}
-                          className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 mt-1 focus:border-red-500 transition-colors"
+                          className="w-full bg-ink/5 border border-border rounded-2xl px-4 py-3 focus:outline-none focus:border-accent/50 transition-all font-medium"
                         />
                       </div>
-                      <div>
-                        <label className="text-xs font-bold uppercase tracking-widest text-gray-500">What is your greatest fear?</label>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Greatest Fear</label>
+                      <input 
+                        type="text" 
+                        placeholder="What haunts your dreams?"
+                        defaultValue={gameState.players.find(p => p.uid === user.uid)?.fear || ''}
+                        onBlur={(e) => saveQuiz(
+                          gameState.players.find(p => p.uid === user.uid)?.hometown || '', 
+                          e.target.value,
+                          gameState.players.find(p => p.uid === user.uid)?.displayName,
+                          gameState.players.find(p => p.uid === user.uid)?.characterArtUrl
+                        )}
+                        className="w-full bg-ink/5 border border-border rounded-2xl px-4 py-3 focus:outline-none focus:border-accent/50 transition-all font-medium"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Character Portrait (URL)</label>
+                      <div className="flex gap-3">
                         <input 
                           type="text" 
-                          placeholder="Your fear..."
-                          defaultValue={gameState.players.find(p => p.uid === user.uid)?.fear || ''}
+                          placeholder="https://..."
+                          defaultValue={gameState.players.find(p => p.uid === user.uid)?.characterArtUrl || ''}
                           onBlur={(e) => saveQuiz(
                             gameState.players.find(p => p.uid === user.uid)?.hometown || '', 
-                            e.target.value,
+                            gameState.players.find(p => p.uid === user.uid)?.fear || '',
                             gameState.players.find(p => p.uid === user.uid)?.displayName,
-                            gameState.players.find(p => p.uid === user.uid)?.characterArtUrl
+                            e.target.value
                           )}
-                          className="w-full bg-black border border-gray-800 rounded-lg px-3 py-2 mt-1 focus:border-red-500 transition-colors"
+                          className="flex-1 bg-ink/5 border border-border rounded-2xl px-4 py-3 focus:outline-none focus:border-accent/50 transition-all font-medium"
                         />
-                      </div>
-                      <div>
-                        <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Character Art URL</label>
-                        <div className="flex gap-2 mt-1">
-                          <input 
-                            type="text" 
-                            placeholder="https://..."
-                            defaultValue={gameState.players.find(p => p.uid === user.uid)?.characterArtUrl || ''}
-                            onBlur={(e) => saveQuiz(
-                              gameState.players.find(p => p.uid === user.uid)?.hometown || '', 
-                              gameState.players.find(p => p.uid === user.uid)?.fear || '',
-                              gameState.players.find(p => p.uid === user.uid)?.displayName,
-                              e.target.value
-                            )}
-                            className="flex-1 bg-black border border-gray-800 rounded-lg px-3 py-2 focus:border-red-500 transition-colors"
-                          />
-                          <button
-                            onClick={() => {
-                              generateCharacterArt();
-                              soundManager.playClick();
-                            }}
-                            onMouseEnter={() => soundManager.playHover()}
-                            disabled={isGeneratingArt}
-                            className="px-4 bg-red-600 hover:bg-red-700 disabled:bg-gray-800 rounded-lg text-xs font-bold transition-colors flex items-center gap-2"
-                          >
-                            {isGeneratingArt ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                            AI Gen
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => {
+                            generateCharacterArt();
+                            soundManager.playClick();
+                          }}
+                          disabled={isGeneratingArt}
+                          className="px-6 bg-accent text-white font-display font-bold rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-accent/20"
+                        >
+                          {isGeneratingArt ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                          <span className="hidden sm:inline">Generate</span>
+                        </button>
                       </div>
                     </div>
                   </div>
 
                   {gameState.hostId === user.uid && (
-                    <div className="space-y-4 pt-4 border-t border-gray-800">
-                      <h3 className="text-lg font-bold flex items-center gap-2">
-                        <Settings className="w-4 h-4 text-blue-500" /> Adventure Customization
+                    <div className="space-y-6 pt-8 border-t border-border">
+                      <h3 className="text-xl font-display font-bold flex items-center gap-3">
+                        <Settings className="w-5 h-5 text-accent" /> Adventure Settings
                       </h3>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Adventure Theme</label>
-                          <div className="grid grid-cols-2 gap-2 mt-2">
+                      
+                      <div className="space-y-6">
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Genre & Atmosphere</label>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             {(['80s', 'fantasy', 'cyberpunk', 'horror'] as const).map((t) => (
                               <button
                                 key={t}
@@ -1021,12 +1067,11 @@ export default function App() {
                                   updateGameStateInFirestore(roomId, { theme: t });
                                   soundManager.playClick();
                                 }}
-                                onMouseEnter={() => soundManager.playHover()}
                                 className={cn(
-                                  "py-2 rounded-lg border text-[10px] font-bold uppercase tracking-widest transition-all",
+                                  "py-3 rounded-2xl border font-display font-bold text-[10px] uppercase tracking-widest transition-all",
                                   (gameState?.theme || '80s') === t 
-                                    ? "bg-red-600 border-red-500 text-white" 
-                                    : "bg-black border-gray-800 text-gray-500 hover:border-gray-700"
+                                    ? "bg-accent border-accent text-white shadow-lg shadow-accent/20" 
+                                    : "bg-ink/5 border-border text-ink/40 hover:border-accent/30"
                                 )}
                               >
                                 {t}
@@ -1035,44 +1080,42 @@ export default function App() {
                           </div>
                         </div>
 
-                        <div>
-                          <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Custom Setting / Prompt</label>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Custom Setting</label>
                           <textarea
                             value={gameState?.customSetting || ''}
                             onChange={(e) => updateGameStateInFirestore(roomId, { customSetting: e.target.value })}
-                            placeholder="e.g. Set in a floating city, or everyone is a cat..."
-                            className="w-full mt-2 bg-black border border-gray-800 rounded-xl p-3 text-xs focus:outline-none focus:border-red-500 transition-colors h-20 resize-none"
+                            placeholder="Describe your world... (e.g. A floating city in the clouds)"
+                            className="w-full bg-ink/5 border border-border rounded-2xl p-4 text-sm focus:outline-none focus:border-accent/50 transition-all h-24 resize-none font-medium"
                           />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-4">
                           <button
                             onClick={() => {
                               updateGameStateInFirestore(roomId, { isHardMode: !gameState?.isHardMode });
                               soundManager.playClick();
                             }}
-                            onMouseEnter={() => soundManager.playHover()}
                             className={cn(
-                              "flex items-center justify-center gap-2 p-3 rounded-xl border transition-all",
-                              gameState?.isHardMode ? "bg-red-950/30 border-red-500 text-red-500" : "bg-black border-gray-800 text-gray-500"
+                              "flex items-center justify-center gap-3 p-4 rounded-2xl border transition-all font-display font-bold text-[10px] uppercase tracking-widest",
+                              gameState?.isHardMode ? "bg-accent/10 border-accent text-accent" : "bg-ink/5 border-border text-ink/40"
                             )}
                           >
                             <Sword className="w-4 h-4" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest">Hard Mode</span>
+                            Hard Mode
                           </button>
                           <button
                             onClick={() => {
                               updateGameStateInFirestore(roomId, { isPermadeath: !gameState?.isPermadeath });
                               soundManager.playClick();
                             }}
-                            onMouseEnter={() => soundManager.playHover()}
                             className={cn(
-                              "flex items-center justify-center gap-2 p-3 rounded-xl border transition-all",
-                              gameState?.isPermadeath ? "bg-red-950/30 border-red-500 text-red-500" : "bg-black border-gray-800 text-gray-500"
+                              "flex items-center justify-center gap-3 p-4 rounded-2xl border transition-all font-display font-bold text-[10px] uppercase tracking-widest",
+                              gameState?.isPermadeath ? "bg-accent/10 border-accent text-accent" : "bg-ink/5 border-border text-ink/40"
                             )}
                           >
                             <Shield className="w-4 h-4" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest">Permadeath</span>
+                            Permadeath
                           </button>
                         </div>
                       </div>
@@ -1086,42 +1129,41 @@ export default function App() {
                       startGame();
                       soundManager.playClick();
                     }}
-                    onMouseEnter={() => soundManager.playHover()}
                     disabled={gameState.isGenerating}
-                    className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-red-900/20 flex items-center gap-2"
+                    className="px-12 py-4 bg-accent text-white font-display font-bold rounded-2xl hover:scale-[1.05] active:scale-[0.95] transition-all shadow-xl shadow-accent/20 flex items-center gap-3 text-lg"
                   >
-                    {gameState.isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sword className="w-5 h-5" />}
-                    Start Adventure
+                    {gameState.isGenerating ? <Loader2 className="w-6 h-6 animate-spin" /> : <Sword className="w-6 h-6" />}
+                    Begin Adventure
                   </button>
                 )}
               </div>
             ) : (
-              <div className="max-w-2xl mx-auto space-y-12">
+              <div className="max-w-3xl mx-auto space-y-16 pb-64 md:pb-48">
                 {gameState.history.map((node, i) => {
                   const isLast = i === gameState.history.length - 1;
                   return (
                     <motion.div
                       key={node.id}
-                      initial={{ opacity: 0, y: 20 }}
+                      initial={{ opacity: 0, y: 30 }}
                       animate={{ opacity: 1, y: 0 }}
                       className={cn(
-                        "space-y-6",
-                        isLast ? "opacity-100" : "opacity-40 grayscale-[0.5]"
+                        "space-y-8 transition-all duration-700",
+                        isLast ? "opacity-100 scale-100" : "opacity-30 scale-[0.98] blur-[1px] hover:opacity-60 hover:blur-0"
                       )}
                     >
                       {isLast && node.imageUrl && (
-                        <div className="relative aspect-video rounded-2xl overflow-hidden border border-gray-800 shadow-2xl">
+                        <div className="relative aspect-[21/9] rounded-3xl overflow-hidden border border-border shadow-2xl group">
                           <img 
                             src={node.imageUrl} 
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" 
                             referrerPolicy="no-referrer"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent opacity-60" />
                         </div>
                       )}
                       
-                      <div className="prose prose-invert max-w-none">
-                        <p className="text-xl leading-relaxed font-serif italic first-letter:text-4xl first-letter:font-bold first-letter:mr-2 first-letter:float-left">
+                      <div className="prose prose-lg prose-ink max-w-none">
+                        <p className="text-2xl md:text-3xl leading-relaxed font-medium italic tracking-tight text-ink/90 first-letter:text-6xl first-letter:font-display first-letter:font-bold first-letter:mr-3 first-letter:float-left first-letter:text-accent">
                           {node.text}
                         </p>
                       </div>
@@ -1130,9 +1172,9 @@ export default function App() {
                 })}
                 
                 {gameState.isGenerating && (
-                  <div className="max-w-2xl mx-auto flex items-center gap-3 text-gray-500 italic">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>The Dungeon Master is weaving the next thread...</span>
+                  <div className="flex flex-col items-center gap-4 text-accent/60 py-12">
+                    <Loader2 className="w-8 h-8 animate-spin" />
+                    <span className="font-display font-bold text-xs uppercase tracking-[0.3em] animate-pulse">The Weaver is spinning fate...</span>
                   </div>
                 )}
               </div>
@@ -1142,103 +1184,107 @@ export default function App() {
           <AnimatePresence>
             {gameState.status === 'active' && !gameState.isGenerating && (
               <motion.div
-                initial={{ y: 100 }}
-                animate={{ y: 0 }}
-                exit={{ y: 100 }}
-                className="p-4 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a] to-transparent"
+                initial={{ y: 100, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 100, opacity: 0 }}
+                className="absolute bottom-0 left-0 right-0 p-4 md:p-6 z-30 pointer-events-none flex flex-col justify-end"
               >
-                <div className={cn(
-                  "max-w-2xl mx-auto grid gap-2",
-                  gameState.isCompactOptions ? "grid-cols-2" : "grid-cols-1"
-                )}>
-                  {gameState.currentOptions.map((choice) => (
+                <div className="max-w-3xl mx-auto w-full pointer-events-auto">
+                  <div className="flex justify-center mb-4">
                     <button
-                      key={choice.id}
-                      onClick={() => {
-                        handleMakeChoice(choice);
-                        soundManager.playClick();
-                      }}
-                      onMouseEnter={() => soundManager.playHover()}
-                      className={cn(
-                        "group flex items-center gap-3 bg-[#111] border border-gray-800 rounded-xl hover:border-white/20 hover:bg-[#1a1a1a] transition-all text-left",
-                        gameState.isCompactOptions ? "p-2 text-xs" : "p-3 text-sm"
-                      )}
+                      onClick={() => setIsOptionsCollapsed(!isOptionsCollapsed)}
+                      className="glass px-4 py-1.5 rounded-full border border-border text-[10px] font-display font-bold uppercase tracking-widest hover:bg-accent hover:text-white transition-all flex items-center gap-2 shadow-lg"
                     >
-                      <div className={cn(
-                        "flex items-center justify-center rounded-lg bg-white/5 group-hover:bg-white/10 transition-colors flex-shrink-0",
-                        gameState.isCompactOptions ? "w-6 h-6" : "w-8 h-8"
-                      )}>
-                        <ChevronRight className={cn(gameState.isCompactOptions ? "w-3 h-3" : "w-4 h-4")} />
-                      </div>
-                      <span className="font-medium line-clamp-2">{choice.text}</span>
-                    </button>
-                  ))}
-
-                  <div className={cn(
-                    "flex items-center gap-2 bg-[#111] border border-gray-800 rounded-xl p-1.5 focus-within:border-white/20 transition-all",
-                    gameState.isCompactOptions ? "col-span-2" : "col-span-1"
-                  )}>
-                    <input 
-                      type="text"
-                      placeholder="Or do something else..."
-                      value={customActionInput}
-                      onChange={(e) => setCustomActionInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && customActionInput.trim()) {
-                          handleMakeChoice(undefined, customActionInput.trim());
-                        }
-                      }}
-                      className="flex-1 bg-transparent text-xs px-2 py-1 focus:outline-none"
-                    />
-                    <button 
-                      onClick={() => {
-                        handleMakeChoice(undefined, customActionInput.trim());
-                        soundManager.playClick();
-                      }}
-                      onMouseEnter={() => soundManager.playHover()}
-                      disabled={!customActionInput.trim()}
-                      className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-all disabled:opacity-0"
-                    >
-                      <Send className="w-3 h-3" />
+                      {isOptionsCollapsed ? "Show Options" : "Read Adventure"}
+                      <ChevronRight className={cn("w-3 h-3 transition-transform", isOptionsCollapsed ? "-rotate-90" : "rotate-90")} />
                     </button>
                   </div>
+
+                  <AnimatePresence>
+                    {!isOptionsCollapsed && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0, y: 20 }}
+                        animate={{ opacity: 1, height: 'auto', y: 0 }}
+                        exit={{ opacity: 0, height: 0, y: 20 }}
+                        className="glass rounded-3xl border border-border p-4 space-y-4 shadow-2xl overflow-hidden"
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {gameState.currentOptions.map((choice) => (
+                            <button
+                              key={choice.id}
+                              onClick={() => {
+                                handleMakeChoice(choice);
+                                soundManager.playClick();
+                              }}
+                              className="group flex items-center gap-4 p-4 bg-ink/5 border border-border rounded-2xl hover:border-accent/50 hover:bg-accent/5 transition-all text-left"
+                            >
+                              <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-accent/10 group-hover:bg-accent text-accent group-hover:text-white transition-all flex-shrink-0">
+                                <ChevronRight className="w-5 h-5" />
+                              </div>
+                              <span className="font-display font-bold text-sm tracking-tight">{choice.text}</span>
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center gap-3 bg-ink/5 border border-border rounded-2xl p-2 focus-within:border-accent/50 transition-all">
+                          <input 
+                            type="text"
+                            placeholder="Forge your own path..."
+                            value={customActionInput}
+                            onChange={(e) => setCustomActionInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && customActionInput.trim()) {
+                                handleMakeChoice(undefined, customActionInput.trim());
+                              }
+                            }}
+                            className="flex-1 bg-transparent text-sm px-4 py-2 focus:outline-none font-medium"
+                          />
+                          <button 
+                            onClick={() => {
+                              if (customActionInput.trim()) {
+                                handleMakeChoice(undefined, customActionInput.trim());
+                                soundManager.playClick();
+                              }
+                            }}
+                            disabled={!customActionInput.trim()}
+                            className="p-3 bg-accent text-white rounded-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-0 shadow-lg shadow-accent/20"
+                          >
+                            <Send className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
-        <aside className="hidden lg:flex w-80 border-l border-gray-900 flex-col p-6 space-y-8 bg-[#0a0a0a]">
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-xs font-bold uppercase tracking-widest text-gray-500 flex items-center gap-2">
-                <Users className="w-3 h-3" /> The Party
-              </h4>
-              <button 
-                onClick={() => updateGameStateInFirestore(roomId, { isCompactOptions: !gameState.isCompactOptions })}
-                className="text-[10px] uppercase tracking-widest text-gray-600 hover:text-white transition-colors"
-              >
-                {gameState.isCompactOptions ? "Expand" : "Compact"}
-              </button>
-            </div>
-            <div className="space-y-3">
-              {gameState.players.map((p, idx) => (
-                <div key={p.uid} className="flex items-center gap-3">
+        <aside className="hidden lg:flex w-80 border-l border-border flex-col p-8 space-y-12 bg-bg shadow-2xl overflow-y-auto">
+          <section className="space-y-6">
+            <h4 className="text-[10px] font-display font-bold uppercase tracking-[0.3em] text-ink/40 flex items-center gap-3">
+              <Users className="w-4 h-4 text-accent" /> The Party
+            </h4>
+            <div className="space-y-4">
+              {gameState.players.map((p) => (
+                <div key={p.uid} className="flex items-center gap-4 group">
                   <div className="relative">
                     <img 
-                      src={p.characterArtUrl || p.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.uid}`} 
-                      className="w-8 h-8 rounded-full border border-gray-800 bg-gray-900 object-cover" 
+                      src={p.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.uid}`} 
+                      className="w-12 h-12 rounded-2xl border border-border bg-ink/5 object-cover transition-transform group-hover:scale-110 shadow-sm" 
+                      referrerPolicy="no-referrer"
                     />
                     {p.isHost && (
-                      <div className="absolute -top-1 -right-1 bg-yellow-500 rounded-full p-0.5">
-                        <Shield className="w-2 h-2 text-black" />
+                      <div className="absolute -top-1 -right-1 bg-accent rounded-lg p-1.5 shadow-lg">
+                        <Shield className="w-2.5 h-2.5 text-white" />
                       </div>
                     )}
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium">{p.displayName}</span>
-                    <span className="text-[10px] text-gray-600 uppercase tracking-tighter">
-                      {p.hometown || 'Unknown Origin'}
+                    <span className="text-sm font-display font-bold text-ink/80">{p.displayName}</span>
+                    <span className="text-[10px] text-ink/30 uppercase tracking-widest font-medium">
+                      {p.isHost ? 'Game Master' : 'Adventurer'}
                     </span>
                   </div>
                 </div>
@@ -1247,25 +1293,26 @@ export default function App() {
           </section>
 
           {gameState.npcs && gameState.npcs.length > 0 && (
-            <section>
-              <h4 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4 flex items-center gap-2">
-                <UserIcon className="w-3 h-3" /> NPCs
+            <section className="space-y-6">
+              <h4 className="text-[10px] font-display font-bold uppercase tracking-[0.3em] text-ink/40 flex items-center gap-3">
+                <UserIcon className="w-4 h-4 text-accent" /> NPCs
               </h4>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {gameState.npcs.map((npc) => (
-                  <div key={npc.id} className={cn("flex items-center gap-3 transition-opacity", !npc.isNearby && "opacity-40")}>
+                  <div key={npc.id} className={cn("flex items-center gap-4 transition-opacity", !npc.isNearby && "opacity-40")}>
                     <div className="relative">
                       <img 
                         src={npc.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${npc.id}`} 
-                        className="w-8 h-8 rounded-full border border-gray-800 bg-gray-900 object-cover" 
+                        className="w-10 h-10 rounded-2xl border border-border bg-ink/5 object-cover shadow-sm" 
+                        referrerPolicy="no-referrer"
                       />
                       {npc.isNearby && (
-                        <div className="absolute -top-1 -right-1 bg-green-500 rounded-full w-2 h-2 border border-black" />
+                        <div className="absolute -top-1 -right-1 bg-green-500 rounded-full w-2.5 h-2.5 border-2 border-bg shadow-lg" />
                       )}
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium">{npc.name}</span>
-                      <span className="text-[10px] text-gray-600 uppercase tracking-tighter">
+                      <span className="text-sm font-display font-bold text-ink/80">{npc.name}</span>
+                      <span className="text-[10px] text-ink/30 uppercase tracking-widest font-medium">
                         {npc.isNearby ? "Nearby" : "Away"}
                       </span>
                     </div>
@@ -1275,13 +1322,13 @@ export default function App() {
             </section>
           )}
 
-          <section className="flex-1 space-y-6 flex flex-col overflow-hidden">
+          <section className="flex-1 space-y-8 flex flex-col overflow-hidden">
             <div className="flex-shrink-0">
-              <h4 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4 flex items-center gap-2">
-                <MapIcon className="w-3 h-3" /> World Info
+              <h4 className="text-[10px] font-display font-bold uppercase tracking-[0.3em] text-ink/40 mb-6 flex items-center gap-3">
+                <MapIcon className="w-4 h-4 text-accent" /> World Info
               </h4>
-              <div className="p-4 bg-[#111] rounded-xl border border-gray-800 text-sm text-gray-400 italic flex items-center gap-3">
-                <Radio className={cn("w-4 h-4", gameState.signalStrength < 0.5 ? "text-red-500 animate-pulse" : "text-green-500")} />
+              <div className="p-5 glass rounded-2xl border border-border text-xs text-ink/60 font-medium flex items-center gap-4 shadow-inner">
+                <Radio className={cn("w-5 h-5", gameState.signalStrength < 0.5 ? "text-accent animate-pulse" : "text-green-500")} />
                 <span>Signal: {gameState.signalStrength > 0.8 ? "Clear" : gameState.signalStrength > 0.4 ? "Weak" : "Jammed"}</span>
               </div>
             </div>
@@ -1289,50 +1336,46 @@ export default function App() {
             {gameState.status === 'active' && (
               <div className="flex-1 flex flex-col min-h-0">
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-xs font-bold uppercase tracking-widest text-gray-500 flex items-center gap-2">
-                    <MessageSquare className="w-3 h-3" /> Walkie-Talkie
+                  <h4 className="text-[10px] font-display font-bold uppercase tracking-[0.3em] text-ink/40 flex items-center gap-3">
+                    <MessageSquare className="w-4 h-4 text-accent" /> Walkie-Talkie
                   </h4>
-                  <button
-                    onClick={playStoryAudio}
-                    disabled={isAudioLoading || gameState.isGenerating}
-                    className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors text-gray-500 hover:text-red-500 disabled:opacity-50"
-                  >
-                    {isAudioLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Volume2 className="w-3 h-3" />}
-                  </button>
                 </div>
                 
-                <div className="flex-1 bg-black/40 border border-gray-800 rounded-xl flex flex-col min-h-0">
+                <div className="flex-1 glass border border-border rounded-2xl flex flex-col min-h-0 overflow-hidden shadow-inner">
                   <div 
                     ref={chatScrollRef}
-                    className="flex-1 overflow-y-auto p-3 space-y-3 scroll-smooth"
+                    className="flex-1 overflow-y-auto p-5 space-y-4 scroll-smooth scrollbar-hide"
                   >
                     {messages.length === 0 ? (
-                      <div className="h-full flex items-center justify-center text-center p-4">
-                        <p className="text-[10px] text-gray-600 uppercase tracking-widest">No transmissions...</p>
+                      <div className="h-full flex items-center justify-center text-center p-4 opacity-20">
+                        <p className="text-[10px] text-ink/40 uppercase tracking-[0.3em] font-display font-bold">No transmissions...</p>
                       </div>
                     ) : (
                       messages.map((msg) => (
-                        <div key={msg.id} className="space-y-1">
+                        <div key={msg.id} className="space-y-1 group">
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold text-gray-500 uppercase">{msg.senderName}</span>
+                            <span className="text-[10px] font-display font-bold text-accent uppercase tracking-widest">{msg.senderName}</span>
+                            <span className="text-[8px] text-ink/20 font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+                              {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
                           </div>
-                          <p className="text-xs text-gray-300 break-words font-mono">
+                          <p className="text-xs text-ink/80 leading-relaxed font-medium">
                             {garbleText(msg.text, gameState.signalStrength)}
                           </p>
                         </div>
                       ))
                     )}
                   </div>
-                  <form onSubmit={handleSendMessage} className="p-2 border-t border-gray-800 flex gap-2">
+                  <form onSubmit={handleSendMessage} className="p-4 border-t border-border flex gap-2 bg-ink/5">
                     <input 
                       type="text"
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
                       placeholder="Over..."
-                      className="flex-1 bg-transparent text-xs focus:outline-none px-2"
+                      className="flex-1 bg-transparent text-xs focus:outline-none px-2 font-medium"
                     />
-                    <button type="submit" className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors text-gray-500 hover:text-white">
-                      <Send className="w-3 h-3" />
+                    <button type="submit" className="p-2 hover:bg-accent hover:text-white rounded-xl transition-all text-ink/40">
+                      <Send className="w-4 h-4" />
                     </button>
                   </form>
                 </div>
@@ -1346,7 +1389,7 @@ export default function App() {
               soundManager.playClick();
             }}
             onMouseEnter={() => soundManager.playHover()}
-            className="w-full py-3 border border-gray-800 rounded-xl text-sm font-bold hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
+            className="w-full py-4 border border-border rounded-2xl text-[10px] font-display font-bold uppercase tracking-widest hover:bg-ink/5 transition-all flex items-center justify-center gap-3 shadow-sm mt-auto"
           >
             <LogOut className="w-4 h-4" /> Abandon Quest
           </button>

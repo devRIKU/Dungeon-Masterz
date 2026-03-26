@@ -1,9 +1,32 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-serif: "Playfair Display", "Georgia", serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
+  
+  --color-bg: var(--bg);
+  --color-ink: var(--ink);
+  --color-accent: var(--accent);
+  --color-border: var(--border);
+}
+
+:root {
+  --bg: #0a0a0a;
+  --ink: #e0e0e0;
+  --accent: #dc2626;
+  --border: #1a1a1a;
+  
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+:root.light {
+  --bg: #f5f5f5;
+  --ink: #1a1a1a;
+  --accent: #dc2626;
+  --border: #e5e5e5;
 }
 
 @keyframes glitch {
@@ -24,27 +47,22 @@
   animation-play-state: running;
 }
 
-:root {
-  background-color: #0a0a0a;
-  color: #e0e0e0;
-}
-
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0a0a0a;
+  background: var(--bg);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1a1a1a;
+  background: var(--border);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #2a2a2a;
+  background: color-mix(in srgb, var(--border), var(--ink) 20%);
 }
 
 .prose p {
@@ -59,4 +77,16 @@
 
 .glow-blue {
   box-shadow: 0 0 20px rgba(37, 99, 235, 0.2);
+}
+
+/* Glass morphism */
+.glass {
+  background: color-mix(in srgb, var(--bg), transparent 20%);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+}
+
+/* Bottom Sheet for Mobile Options */
+.options-sheet {
+  mask-image: linear-gradient(to top, black 80%, transparent 100%);
 }
