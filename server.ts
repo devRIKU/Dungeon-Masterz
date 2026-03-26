@@ -4,6 +4,9 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import * as dotenv from "dotenv";
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,7 +34,7 @@ async function startServer() {
     }
 
     res.json({ 
-      geminiApiKey: process.env.GEMINI_API_KEY || '',
+      geminiApiKey: process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '',
       firebaseConfig
     });
   });

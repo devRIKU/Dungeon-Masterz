@@ -16,10 +16,14 @@ export async function initializeGemini() {
     console.warn("Failed to fetch config from backend, falling back to env vars if available");
   }
   
-  // Fallback to import.meta.env if running purely client-side without the backend
+  // Fallback to import.meta.env if running purely client-side or if backend failed
   if (!apiKey) {
-    // We initialize with a dummy key so the app doesn't crash on load, but it will fail on use
+    apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
+  }
+  
+  if (!apiKey) {
     console.error("CRITICAL ERROR: GEMINI_API_KEY is missing! Please set it in your environment variables.");
+    // We initialize with a dummy key so the app doesn't crash on load, but it will fail on use
     ai = new GoogleGenAI({ apiKey: 'missing_key' });
   } else {
     ai = new GoogleGenAI({ apiKey });
@@ -83,7 +87,7 @@ export async function generateStoryPart(
   const aiClient = await initializeGemini();
   
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is missing. Please configure it in your Netlify environment variables and trigger a rebuild.");
+    throw new Error("GEMINI_API_KEY is missing. Please ensure it is set in your environment variables (e.g. Netlify UI or .env file) and restart the app.");
   }
   const model = "gemini-3-flash-preview";
   
@@ -173,7 +177,7 @@ export async function generateAudio(text: string) {
   const aiClient = await initializeGemini();
   
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is missing. Please configure it in your Netlify environment variables and trigger a rebuild.");
+    throw new Error("GEMINI_API_KEY is missing. Please ensure it is set in your environment variables (e.g. Netlify UI or .env file) and restart the app.");
   }
   const response = await aiClient.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
