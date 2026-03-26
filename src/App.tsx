@@ -22,7 +22,10 @@ import {
   VolumeX,
   MessageSquare,
   Send,
-  Radio,
+  SignalHigh,
+  SignalMedium,
+  SignalLow,
+  SignalZero,
   Info,
   X,
   Settings,
@@ -248,7 +251,11 @@ export default function App() {
       soundManager.playSuccess();
     } catch (err) {
       console.error(err);
-      setError("Failed to start the adventure. Please try again.");
+      if (err instanceof Error && err.message.includes("GEMINI_API_KEY")) {
+        setError(err.message);
+      } else {
+        setError("Failed to start the adventure. Please try again.");
+      }
       await updateGameStateInFirestore(roomId, { isGenerating: false });
     }
   };
@@ -300,7 +307,11 @@ export default function App() {
       soundManager.playSuccess();
     } catch (err) {
       console.error(err);
-      setError("The DM is momentarily speechless. Try again.");
+      if (err instanceof Error && err.message.includes("GEMINI_API_KEY")) {
+        setError(err.message);
+      } else {
+        setError("The DM is momentarily speechless. Try again.");
+      }
       await updateGameStateInFirestore(roomId, { isGenerating: false });
     }
   };
@@ -515,8 +526,8 @@ export default function App() {
                     <div className="space-y-2">
                       <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Custom Setting</label>
                       <textarea
-                        value={gameState?.customSetting || ''}
-                        onChange={(e) => updateGameStateInFirestore(roomId, { customSetting: e.target.value })}
+                        defaultValue={gameState?.customSetting || ''}
+                        onBlur={(e) => updateGameStateInFirestore(roomId, { customSetting: e.target.value })}
                         placeholder="e.g. Set in a floating city..."
                         className="w-full bg-ink/5 border border-border rounded-2xl p-4 text-sm focus:outline-none focus:border-accent/50 transition-all h-24 resize-none font-medium"
                       />
@@ -937,7 +948,10 @@ export default function App() {
               
               <div className="mt-auto pt-8">
                 <div className="p-4 bg-[#111] rounded-xl border border-gray-800 text-sm text-gray-400 italic flex items-center gap-3 mb-6">
-                  <Radio className={cn("w-4 h-4", gameState.signalStrength < 0.5 ? "text-red-500 animate-pulse" : "text-green-500")} />
+                  {gameState.signalStrength > 0.8 ? <SignalHigh className="w-4 h-4 text-green-500" /> :
+                   gameState.signalStrength > 0.4 ? <SignalMedium className="w-4 h-4 text-yellow-500" /> :
+                   gameState.signalStrength > 0.1 ? <SignalLow className="w-4 h-4 text-orange-500 animate-pulse" /> :
+                   <SignalZero className="w-4 h-4 text-red-500 animate-pulse" />}
                   <span>Signal: {gameState.signalStrength > 0.8 ? "Clear" : gameState.signalStrength > 0.4 ? "Weak" : "Jammed"}</span>
                 </div>
                 <button
@@ -1125,8 +1139,8 @@ export default function App() {
                               <div className="space-y-2">
                                 <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Custom Setting</label>
                                 <textarea
-                                  value={gameState?.customSetting || ''}
-                                  onChange={(e) => updateGameStateInFirestore(roomId, { customSetting: e.target.value })}
+                                  defaultValue={gameState?.customSetting || ''}
+                                  onBlur={(e) => updateGameStateInFirestore(roomId, { customSetting: e.target.value })}
                                   placeholder="Describe your world... (e.g. A floating city in the clouds)"
                                   className="w-full bg-bg border border-border rounded-2xl p-4 text-sm focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all h-24 resize-none font-medium"
                                 />
@@ -1373,7 +1387,10 @@ export default function App() {
                 <MapIcon className="w-4 h-4 text-accent" /> World Info
               </h4>
               <div className="p-5 glass rounded-2xl border border-border text-xs text-ink/60 font-medium flex items-center gap-4 shadow-inner">
-                <Radio className={cn("w-5 h-5", gameState.signalStrength < 0.5 ? "text-accent animate-pulse" : "text-green-500")} />
+                {gameState.signalStrength > 0.8 ? <SignalHigh className="w-5 h-5 text-green-500" /> :
+                 gameState.signalStrength > 0.4 ? <SignalMedium className="w-5 h-5 text-yellow-500" /> :
+                 gameState.signalStrength > 0.1 ? <SignalLow className="w-5 h-5 text-orange-500 animate-pulse" /> :
+                 <SignalZero className="w-5 h-5 text-red-500 animate-pulse" />}
                 <span>Signal: {gameState.signalStrength > 0.8 ? "Clear" : gameState.signalStrength > 0.4 ? "Weak" : "Jammed"}</span>
               </div>
             </div>

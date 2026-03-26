@@ -1,6 +1,9 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 
 const apiKey = process.env.GEMINI_API_KEY!;
+if (!apiKey) {
+  console.error("CRITICAL ERROR: GEMINI_API_KEY is missing! Please set it in your environment variables.");
+}
 const ai = new GoogleGenAI({ apiKey });
 
 const STORY_SCHEMA = {
@@ -55,6 +58,9 @@ export async function generateStoryPart(
   isHardMode?: boolean,
   isPermadeath?: boolean
 ) {
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is missing. Please configure it in your Netlify environment variables and trigger a rebuild.");
+  }
   const model = "gemini-3-flash-preview";
   
   const playerContext = players.map(p => 
@@ -140,6 +146,9 @@ export async function generateImage(prompt: string, aspectRatio: "1:1" | "16:9" 
 }
 
 export async function generateAudio(text: string) {
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is missing. Please configure it in your Netlify environment variables and trigger a rebuild.");
+  }
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
     contents: [{ parts: [{ text: `Deliver this in a slow, ethereal, and hauntingly mysterious voice, as if speaking from another dimension: ${text}` }] }],
