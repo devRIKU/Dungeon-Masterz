@@ -7,7 +7,12 @@ export async function initializeGemini() {
   if (ai) return ai;
   
   try {
-    const response = await fetch('/api/config');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch('/api/config', { signal: controller.signal });
+    clearTimeout(timeoutId);
+    
     if (response.ok) {
       const data = await response.json();
       apiKey = data.geminiApiKey || '';

@@ -33,8 +33,12 @@ async function startServer() {
       console.error('Failed to read firebase config', e);
     }
 
+    const geminiApiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
+    
+    console.log(`[Config] Serving config. Gemini API Key present: ${!!geminiApiKey}, Firebase Config present: ${!!firebaseConfig}, NODE_ENV: ${process.env.NODE_ENV}`);
+
     res.json({ 
-      geminiApiKey: process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '',
+      geminiApiKey,
       firebaseConfig
     });
   });
