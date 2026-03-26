@@ -2,8 +2,19 @@ import React, { useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, signInWithGoogle } from './firebase';
 import { GameState, Player, StoryNode, StoryChoice, ChatMessage } from './types';
-import { generateStoryPart, generateAudio, generateImage } from './services/geminiService';
-import { createGameInFirestore, joinGameInFirestore, updateGameStateInFirestore, subscribeToGame, sendChatMessage, subscribeToChat, addHistoryNode, subscribeToHistory } from './services/gameService';
+import { generateStoryPart, generateAudio, generateImage, setApiKey } from './services/geminiService';
+import { 
+  createGameInFirestore, 
+  joinGameInFirestore, 
+  updateGameStateInFirestore, 
+  subscribeToGame, 
+  sendChatMessage, 
+  subscribeToChat, 
+  addHistoryNode, 
+  subscribeToHistory,
+  getUserSettings,
+  updateUserSettings
+} from './services/gameService';
 import { cn } from './lib/utils';
 import { soundManager } from './lib/sounds';
 import { 
@@ -61,6 +72,8 @@ export default function App() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isPartyOpen, setIsPartyOpen] = useState(false);
   const [isAdventureSettingsOpen, setIsAdventureSettingsOpen] = useState(false);
+  const [userApiKey, setUserApiKey] = useState('');
+  const [isSavingApiKey, setIsSavingApiKey] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
@@ -99,8 +112,15 @@ export default function App() {
 
   useEffect(() => {
     if (!auth) return;
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
+      if (u) {
+        const settings = await getUserSettings(u.uid);
+        if (settings?.geminiApiKey) {
+          setUserApiKey(settings.geminiApiKey);
+          setApiKey(settings.geminiApiKey);
+        }
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -544,6 +564,20 @@ export default function App() {
     );
   }
 
+  const handleSaveUserApiKey = async () => {
+    if (!user) return;
+    setIsSavingApiKey(true);
+    try {
+      await updateUserSettings(user.uid, { geminiApiKey: userApiKey });
+      setApiKey(userApiKey);
+      soundManager.playClick();
+    } catch (err) {
+      console.error("Failed to save API key", err);
+    } finally {
+      setIsSavingApiKey(false);
+    }
+  };
+
   const renderModals = () => (
     <>
       <AnimatePresence>
@@ -629,6 +663,31 @@ export default function App() {
                         <Shield className="w-5 h-5" />
                         Permadeath
                       </button>
+                    </div>
+
+                    <div className="pt-4 border-t border-border space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Personal Gemini API Key</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="password"
+                            value={userApiKey}
+                            onChange={(e) => setUserApiKey(e.target.value)}
+                            placeholder="Paste your API key here..."
+                            className="flex-1 bg-ink/5 border border-border rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 transition-all font-mono"
+                          />
+                          <button
+                            onClick={handleSaveUserApiKey}
+                            disabled={isSavingApiKey}
+                            className="px-4 bg-accent text-white rounded-2xl font-display font-bold text-[10px] uppercase tracking-widest hover:scale-[1.05] active:scale-[0.95] transition-all disabled:opacity-50"
+                          >
+                            {isSavingApiKey ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-ink/40 italic ml-1">
+                          Optional: Use your own key for higher limits. Stored securely in your account.
+                        </p>
+                      </div>
                     </div>
                   </>
                 )}

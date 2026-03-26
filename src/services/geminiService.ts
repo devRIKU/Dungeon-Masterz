@@ -3,8 +3,15 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 let ai: GoogleGenAI | null = null;
 let apiKey = '';
 
+export function setApiKey(newKey: string) {
+  apiKey = newKey;
+  if (apiKey) {
+    ai = new GoogleGenAI({ apiKey });
+  }
+}
+
 export async function initializeGemini() {
-  if (ai) return ai;
+  if (ai && apiKey) return ai;
   
   try {
     const controller = new AbortController();

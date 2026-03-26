@@ -195,3 +195,27 @@ export const subscribeToChat = (roomId: string, callback: (messages: ChatMessage
     handleFirestoreError(error, OperationType.GET, path);
   });
 };
+
+export const getUserSettings = async (userId: string) => {
+  const path = `users/${userId}/settings/private`;
+  const settingsRef = doc(db, 'users', userId, 'settings', 'private');
+  try {
+    const snap = await getDoc(settingsRef);
+    if (snap.exists()) {
+      return snap.data();
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+  }
+  return null;
+};
+
+export const updateUserSettings = async (userId: string, settings: any) => {
+  const path = `users/${userId}/settings/private`;
+  const settingsRef = doc(db, 'users', userId, 'settings', 'private');
+  try {
+    await setDoc(settingsRef, removeUndefined(settings), { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+};

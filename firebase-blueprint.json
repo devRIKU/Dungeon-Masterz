@@ -74,6 +74,14 @@
         "isNPC": { "type": "boolean" }
       },
       "required": ["senderId", "senderName", "text", "timestamp"]
+    },
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "Private settings for a user.",
+      "type": "object",
+      "properties": {
+        "geminiApiKey": { "type": "string", "description": "User's personal Gemini API key." }
+      }
     }
   },
   "firestore": {
@@ -88,6 +96,10 @@
     "/games/{gameId}/history/{nodeId}": {
       "schema": "StoryNode",
       "description": "History nodes for a specific game."
+    },
+    "/users/{userId}/settings/private": {
+      "schema": "UserSettings",
+      "description": "Private settings for a specific user."
     }
   }
 }
