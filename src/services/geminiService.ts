@@ -1,10 +1,32 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 
-const apiKey = process.env.GEMINI_API_KEY!;
-if (!apiKey) {
-  console.error("CRITICAL ERROR: GEMINI_API_KEY is missing! Please set it in your environment variables.");
+let ai: GoogleGenAI | null = null;
+let apiKey = '';
+
+export async function initializeGemini() {
+  if (ai) return ai;
+  
+  try {
+    const response = await fetch('/api/config');
+    if (response.ok) {
+      const data = await response.json();
+      apiKey = data.geminiApiKey || '';
+    }
+  } catch (error) {
+    console.warn("Failed to fetch config from backend, falling back to env vars if available");
+  }
+  
+  // Fallback to import.meta.env if running purely client-side without the backend
+  if (!apiKey) {
+    // We initialize with a dummy key so the app doesn't crash on load, but it will fail on use
+    console.error("CRITICAL ERROR: GEMINI_API_KEY is missing! Please set it in your environment variables.");
+    ai = new GoogleGenAI({ apiKey: 'missing_key' });
+  } else {
+    ai = new GoogleGenAI({ apiKey });
+  }
+  
+  return ai;
 }
-const ai = new GoogleGenAI({ apiKey });
 
 const STORY_SCHEMA = {
   type: Type.OBJECT,
@@ -58,6 +80,8 @@ export async function generateStoryPart(
   isHardMode?: boolean,
   isPermadeath?: boolean
 ) {
+  const aiClient = await initializeGemini();
+  
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is missing. Please configure it in your Netlify environment variables and trigger a rebuild.");
   }
@@ -120,7 +144,7 @@ export async function generateStoryPart(
     });
   }
 
-  const response = await ai.models.generateContent({
+  const response = await aiClient.models.generateContent({
     model,
     contents,
     config: {
@@ -146,10 +170,12 @@ export async function generateImage(prompt: string, aspectRatio: "1:1" | "16:9" 
 }
 
 export async function generateAudio(text: string) {
+  const aiClient = await initializeGemini();
+  
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is missing. Please configure it in your Netlify environment variables and trigger a rebuild.");
   }
-  const response = await ai.models.generateContent({
+  const response = await aiClient.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
     contents: [{ parts: [{ text: `Deliver this in a slow, ethereal, and hauntingly mysterious voice, as if speaking from another dimension: ${text}` }] }],
     config: {

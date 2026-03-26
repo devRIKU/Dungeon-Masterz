@@ -251,8 +251,9 @@ export default function App() {
       soundManager.playSuccess();
     } catch (err) {
       console.error(err);
-      if (err instanceof Error && err.message.includes("GEMINI_API_KEY")) {
-        setError(err.message);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (errMsg.includes("GEMINI_API_KEY") || errMsg.toLowerCase().includes("api key") || errMsg.includes("403") || errMsg.includes("400")) {
+        setError("GEMINI_API_KEY is missing or invalid. Please check your configuration.");
       } else {
         setError("Failed to start the adventure. Please try again.");
       }
@@ -307,8 +308,9 @@ export default function App() {
       soundManager.playSuccess();
     } catch (err) {
       console.error(err);
-      if (err instanceof Error && err.message.includes("GEMINI_API_KEY")) {
-        setError(err.message);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (errMsg.includes("GEMINI_API_KEY") || errMsg.toLowerCase().includes("api key") || errMsg.includes("403") || errMsg.includes("400")) {
+        setError("GEMINI_API_KEY is missing or invalid. Please check your configuration.");
       } else {
         setError("The DM is momentarily speechless. Try again.");
       }
@@ -369,8 +371,13 @@ export default function App() {
         }
       } catch (err) {
         console.error("Audio generation failed:", err);
-        // Fallback to local speech if Gemini fails
-        speakText(gameState.currentText);
+        const errMsg = err instanceof Error ? err.message : String(err);
+        if (errMsg.includes("GEMINI_API_KEY") || errMsg.toLowerCase().includes("api key") || errMsg.includes("403") || errMsg.includes("400")) {
+          setError("GEMINI_API_KEY is missing or invalid. Please check your configuration.");
+        } else {
+          // Fallback to local speech if Gemini fails
+          speakText(gameState.currentText);
+        }
       } finally {
         setIsAudioLoading(false);
       }
@@ -396,10 +403,77 @@ export default function App() {
       }
     } catch (err) {
       console.error(err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (errMsg.includes("GEMINI_API_KEY") || errMsg.toLowerCase().includes("api key") || errMsg.includes("403") || errMsg.includes("400")) {
+        setError("GEMINI_API_KEY is missing or invalid. Please check your configuration.");
+      }
     } finally {
       setIsGeneratingArt(false);
     }
   };
+
+  const [isApiKeyMissing, setIsApiKeyMissing] = useState(false);
+
+  useEffect(() => {
+    // Check if API key is available
+    const checkApiKey = async () => {
+      try {
+        const response = await fetch('/api/config');
+        if (response.ok) {
+          const data = await response.json();
+          if (!data.geminiApiKey) {
+            setIsApiKeyMissing(true);
+          }
+        } else {
+          setIsApiKeyMissing(true);
+        }
+      } catch (e) {
+        setIsApiKeyMissing(true);
+      }
+    };
+    checkApiKey();
+  }, []);
+
+  const showApiKeyError = isApiKeyMissing || (error && error.includes("GEMINI_API_KEY"));
+
+  if (showApiKeyError) {
+    return (
+      <div className="min-h-screen bg-bg text-ink flex flex-col items-center justify-center p-4 font-sans relative overflow-hidden transition-colors duration-500">
+        <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-accent/20 blur-[120px] rounded-full" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-blue-900/20 blur-[120px] rounded-full" />
+        </div>
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="w-full max-w-lg bg-bg border border-red-500/30 rounded-3xl p-8 space-y-6 shadow-2xl relative overflow-hidden z-10"
+        >
+          <div className="absolute top-0 left-0 w-full h-1 bg-red-500" />
+          <div className="flex items-center gap-4 text-red-500 mb-2">
+            <Shield className="w-8 h-8" />
+            <h2 className="text-2xl font-display font-bold">API Key Required</h2>
+          </div>
+          
+          <div className="space-y-4 text-ink/80 leading-relaxed">
+            <p>
+              Your adventure cannot begin because the <strong>Gemini API Key</strong> is missing or invalid.
+            </p>
+            <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/20 text-sm">
+              <h4 className="font-bold text-red-500 mb-2 uppercase tracking-wider text-xs">How to fix this:</h4>
+              <ul className="list-disc pl-5 space-y-2">
+                <li><strong>On Netlify:</strong> Go to Site configuration &gt; Environment variables. Add <code>GEMINI_API_KEY</code> and trigger a new deploy.</li>
+                <li><strong>In AI Studio:</strong> Add the key to your Secrets menu.</li>
+                <li><strong>Local Development:</strong> Add it to your <code>.env</code> file.</li>
+              </ul>
+            </div>
+            <p className="text-xs opacity-60 italic mt-4">
+              This screen will disappear once a valid key is provided and the app is reloaded.
+            </p>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -631,6 +705,17 @@ export default function App() {
                 )}
               </div>
             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {error && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 bg-red-500 text-white font-medium rounded-full shadow-lg flex items-center gap-3">
+            <Shield className="w-4 h-4" />
+            {error}
+            <button onClick={() => setError(null)} className="ml-2 hover:opacity-70">
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
       </AnimatePresence>
