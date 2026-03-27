@@ -26,6 +26,7 @@ async function startServer() {
     let firebaseConfig = null;
     try {
       const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+      console.log(`[Config] Looking for config at: ${configPath}`);
       if (fs.existsSync(configPath)) {
         firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
       }
