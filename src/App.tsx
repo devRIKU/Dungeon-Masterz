@@ -61,6 +61,7 @@ export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [customActionInput, setCustomActionInput] = useState('');
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isGeneratingArt, setIsGeneratingArt] = useState(false);
@@ -73,9 +74,96 @@ export default function App() {
   const [isPartyOpen, setIsPartyOpen] = useState(false);
   const [isAdventureSettingsOpen, setIsAdventureSettingsOpen] = useState(false);
   const [userApiKey, setUserApiKey] = useState('');
+  const [apiKey, setApiKeyLocal] = useState('');
   const [isSavingApiKey, setIsSavingApiKey] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  // Audio Engine for Mysterious Voice
+  const audioContextRef = useRef<AudioContext | null>(null);
+  
+  const playMysteriousAudio = async (base64Data: string) => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    const ctx = audioContextRef.current;
+    
+    try {
+      const binaryString = window.atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      const audioBuffer = await ctx.decodeAudioData(bytes.buffer);
+      const source = ctx.createBufferSource();
+      source.buffer = audioBuffer;
+      
+      // Effects
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 1000; // Muffled, mysterious
+      filter.Q.value = 1.5;
+      
+      const delay = ctx.createDelay();
+      delay.delayTime.value = 0.2;
+      
+      const feedback = ctx.createGain();
+      feedback.gain.value = 0.4;
+      
+      const dry = ctx.createGain();
+      const wet = ctx.createGain();
+      dry.gain.value = 0.7;
+      wet.gain.value = 0.5;
+
+      const compressor = ctx.createDynamicsCompressor();
+      compressor.threshold.setValueAtTime(-50, ctx.currentTime);
+      compressor.knee.setValueAtTime(40, ctx.currentTime);
+      compressor.ratio.setValueAtTime(12, ctx.currentTime);
+      compressor.attack.setValueAtTime(0, ctx.currentTime);
+      compressor.release.setValueAtTime(0.25, ctx.currentTime);
+      
+      // Routing
+      source.connect(filter);
+      filter.connect(compressor);
+      compressor.connect(dry);
+      dry.connect(ctx.destination);
+      
+      compressor.connect(delay);
+      delay.connect(feedback);
+      feedback.connect(delay);
+      delay.connect(wet);
+      wet.connect(ctx.destination);
+      
+      source.start();
+    } catch (err) {
+      console.error("AudioFX Error:", err);
+    }
+  };
+
+  const handlePlayAnonymous = () => {
+    setIsAnonymous(true);
+    // Mock user for anonymous play
+    setUser({
+      uid: 'anon-' + Math.random().toString(36).substring(2, 9),
+      displayName: 'Anonymous Adventurer',
+      email: null,
+      emailVerified: false,
+      isAnonymous: true,
+      metadata: {},
+      providerData: [],
+      refreshToken: '',
+      tenantId: null,
+      delete: async () => {},
+      getIdToken: async () => '',
+      getIdTokenResult: async () => ({} as any),
+      reload: async () => {},
+      toJSON: () => ({}),
+      phoneNumber: null,
+      photoURL: null,
+    } as any);
+    setIsSettingsOpen(true); // Prompt for API key immediately
+  };
 
   const isAIStudio = () => {
     return window.location.hostname.includes('ais-dev') || 
@@ -235,6 +323,24 @@ export default function App() {
   const startGame = async () => {
     if (!gameState || gameState.hostId !== user?.uid) return;
     
+    // Check if API key is available for anonymous users
+    if (isAnonymous && !userApiKey && !apiKey) {
+      setIsSettingsOpen(true);
+      setError("A Gemini API Key is required to play anonymously. Please enter one in Settings.");
+      soundManager.playError();
+      return;
+    }
+
+    // For logged-in users, if no key is available, ask the platform to provide one
+    if (!isAnonymous && !userApiKey && !apiKey) {
+      if (typeof window !== 'undefined' && (window as any).aistudio) {
+        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+          await (window as any).aistudio.openSelectKey();
+        }
+      }
+    }
+
     await updateGameStateInFirestore(roomId, { isGenerating: true });
     try {
       const theme = gameState.theme || '80s';
@@ -278,7 +384,7 @@ export default function App() {
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
       if (errMsg.includes("GEMINI_API_KEY") || errMsg.toLowerCase().includes("api key") || errMsg.includes("403") || errMsg.includes("400")) {
-        setError("GEMINI_API_KEY is missing or invalid. Please check your configuration.");
+        setError("A Gemini API Key is required. Please select one when prompted or enter it in Settings.");
       } else {
         setError("Failed to start the adventure. Please try again.");
       }
@@ -288,6 +394,24 @@ export default function App() {
 
   const handleMakeChoice = async (choice?: StoryChoice, customAction?: string) => {
     if (!gameState || gameState.isGenerating) return;
+
+    // Check if API key is available for anonymous users
+    if (isAnonymous && !userApiKey && !apiKey) {
+      setIsSettingsOpen(true);
+      setError("A Gemini API Key is required to play anonymously. Please enter one in Settings.");
+      soundManager.playError();
+      return;
+    }
+
+    // For logged-in users, if no key is available, ask the platform to provide one
+    if (!isAnonymous && !userApiKey && !apiKey) {
+      if (typeof window !== 'undefined' && (window as any).aistudio) {
+        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+          await (window as any).aistudio.openSelectKey();
+        }
+      }
+    }
 
     // Broadcast that we're generating
     await updateGameStateInFirestore(roomId, { isGenerating: true });
@@ -335,7 +459,7 @@ export default function App() {
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
       if (errMsg.includes("GEMINI_API_KEY") || errMsg.toLowerCase().includes("api key") || errMsg.includes("403") || errMsg.includes("400")) {
-        setError("GEMINI_API_KEY is missing or invalid. Please check your configuration.");
+        setError("A Gemini API Key is required. Please select one when prompted or enter it in Settings.");
       } else {
         setError("The DM is momentarily speechless. Try again.");
       }
@@ -386,31 +510,25 @@ export default function App() {
   const playStoryAudio = async () => {
     if (!gameState?.currentText || isAudioLoading) return;
     
-    // If on AI Studio, use the high-quality (but slower) Gemini TTS + Web Audio effects
-    if (isAIStudio()) {
-      setIsAudioLoading(true);
-      try {
-        const base64Data = await generateAudio(gameState.currentText);
-        if (base64Data) {
-          await soundManager.playVoice(base64Data);
-        }
-      } catch (err) {
-        console.error("Audio generation failed:", err);
-        const errMsg = err instanceof Error ? err.message : String(err);
-        if (errMsg.includes("GEMINI_API_KEY") || errMsg.toLowerCase().includes("api key") || errMsg.includes("403") || errMsg.includes("400")) {
-          setError("GEMINI_API_KEY is missing or invalid. Please check your configuration.");
-        } else {
-          // Fallback to local speech if Gemini fails
-          speakText(gameState.currentText);
-        }
-      } finally {
-        setIsAudioLoading(false);
+    setIsAudioLoading(true);
+    try {
+      const base64Data = await generateAudio(gameState.currentText);
+      if (base64Data) {
+        await playMysteriousAudio(base64Data);
       }
-      return;
+    } catch (err) {
+      console.error("Audio generation failed:", err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (errMsg.includes("GEMINI_API_KEY") || errMsg.toLowerCase().includes("api key") || errMsg.includes("403") || errMsg.includes("400")) {
+        setError("A Gemini API Key is required. Please select one when prompted or enter it in Settings.");
+        setIsSettingsOpen(true);
+      } else {
+        // Fallback to local speech if Gemini fails
+        speakText(gameState.currentText);
+      }
+    } finally {
+      setIsAudioLoading(false);
     }
-
-    // Otherwise (using own API key), use the fast local SpeechSynthesis
-    speakText(gameState.currentText);
   };
 
   const generateCharacterArt = async () => {
@@ -471,19 +589,27 @@ export default function App() {
           
           <div className="space-y-4 px-4">
             <button
-              onClick={() => {
+              onClick={async () => {
                 soundManager.playClick();
-                signInWithGoogle()
-                  .then(async (result) => {
-                    if (result && result.user && userApiKey) {
-                      await updateUserSettings(result.user.uid, { geminiApiKey: userApiKey });
-                      setApiKey(userApiKey);
+                try {
+                  const result = await signInWithGoogle();
+                  
+                  // Automatically ask Google for an API key on the user's behalf
+                  if (typeof window !== 'undefined' && (window as any).aistudio) {
+                    const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+                    if (!hasKey) {
+                      await (window as any).aistudio.openSelectKey();
                     }
-                  })
-                  .catch((err) => {
-                    console.error(err);
-                    setError("Login failed: " + (err.message || String(err)));
-                  });
+                  }
+
+                  if (result && result.user && userApiKey) {
+                    await updateUserSettings(result.user.uid, { geminiApiKey: userApiKey });
+                    setApiKey(userApiKey);
+                  }
+                } catch (err: any) {
+                  console.error(err);
+                  setError("Login failed: " + (err.message || String(err)));
+                }
               }}
               onMouseEnter={() => soundManager.playHover()}
               className="w-full py-5 px-8 bg-ink text-bg font-display font-bold text-lg rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 group shadow-2xl shadow-ink/10"
@@ -491,22 +617,18 @@ export default function App() {
               <Shield className="w-6 h-6 group-hover:rotate-12 transition-transform" />
               Begin Your Journey
             </button>
-            
-            <div className="pt-6 space-y-2">
-              <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Personal Gemini API Key (Required)</label>
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  value={userApiKey}
-                  onChange={(e) => setUserApiKey(e.target.value)}
-                  placeholder="Paste your API key here..."
-                  className="flex-1 glass rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 transition-all font-mono text-center"
-                />
-              </div>
-              <p className="text-[10px] text-ink/40 italic ml-1 text-center">
-                Your key is synced securely with your account upon login.
-              </p>
-            </div>
+
+            <button
+              onClick={() => {
+                soundManager.playClick();
+                handlePlayAnonymous();
+              }}
+              onMouseEnter={() => soundManager.playHover()}
+              className="w-full py-4 px-8 glass text-ink font-display font-bold text-sm rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 group"
+            >
+              <UserIcon className="w-4 h-4 opacity-50" />
+              Play Anonymous
+            </button>
 
             <div className="flex items-center justify-center gap-6 pt-4 opacity-40">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em]">
@@ -552,11 +674,16 @@ export default function App() {
     if (!user) return;
     setIsSavingApiKey(true);
     try {
-      await updateUserSettings(user.uid, { geminiApiKey: userApiKey });
       setApiKey(userApiKey);
+      setApiKeyLocal(userApiKey);
+      if (!user.isAnonymous) {
+        await updateUserSettings(user.uid, { geminiApiKey: userApiKey });
+      }
       soundManager.playClick();
+      setIsSettingsOpen(false);
     } catch (err) {
       console.error("Failed to save API key", err);
+      setError("Failed to save API key");
     } finally {
       setIsSavingApiKey(false);
     }
@@ -583,94 +710,96 @@ export default function App() {
               </div>
 
               <div className="space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Personal Gemini API Key</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="password"
+                        value={userApiKey}
+                        onChange={(e) => setUserApiKey(e.target.value)}
+                        placeholder="Paste your API key here..."
+                        className="flex-1 bg-ink/5 border border-border rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 transition-all font-mono"
+                      />
+                      <button
+                        onClick={handleSaveUserApiKey}
+                        disabled={isSavingApiKey}
+                        className="px-4 bg-accent text-white rounded-2xl font-display font-bold text-[10px] uppercase tracking-widest hover:scale-[1.05] active:scale-[0.95] transition-all disabled:opacity-50"
+                      >
+                        {isSavingApiKey ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-ink/40 italic ml-1">
+                      {user?.isAnonymous ? "Required for anonymous play." : "Stored securely in your account."}
+                    </p>
+                  </div>
+                </div>
+
                 {!gameState ? (
-                  <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 opacity-30">
+                  <div className="py-8 flex flex-col items-center justify-center text-center space-y-4 opacity-30">
                     <Settings className="w-12 h-12" />
                     <p className="text-lg font-display font-bold">No active adventure.</p>
                   </div>
                 ) : (
                   <>
-                    <div className="space-y-3">
-                      <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Adventure Theme</label>
-                      <div className="relative">
-                        <select
-                          value={gameState?.theme || '80s'}
-                          onChange={(e) => updateGameStateInFirestore(roomId, { theme: e.target.value })}
-                          className="w-full appearance-none bg-bg border border-border rounded-2xl px-4 py-3 pr-10 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all font-medium text-ink"
-                        >
-                          {[
-                            '80s', 'Fantasy', 'Cyberpunk', 'Horror', 'Sci-Fi', 
-                            'Post-Apocalyptic', 'Steampunk', 'Western', 'Noir', 
-                            'Mystery', 'Superhero', 'Historical', 'Space Opera', 
-                            'Lovecraftian', 'High Fantasy', 'Dark Fantasy', 
-                            'Urban Fantasy', 'Grimdark', 'Cozy', 'Comedy'
-                          ].map((t) => (
-                            <option key={t} value={t}>{t}</option>
-                          ))}
-                        </select>
-                        <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-ink/40">
-                          <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
-                            <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path>
-                          </svg>
+                    <div className="pt-4 border-t border-border space-y-6">
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Adventure Theme</label>
+                        <div className="relative">
+                          <select
+                            value={gameState?.theme || '80s'}
+                            onChange={(e) => updateGameStateInFirestore(roomId, { theme: e.target.value })}
+                            className="w-full appearance-none bg-bg border border-border rounded-2xl px-4 py-3 pr-10 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all font-medium text-ink"
+                          >
+                            {[
+                              '80s', 'Fantasy', 'Cyberpunk', 'Horror', 'Sci-Fi', 
+                              'Post-Apocalyptic', 'Steampunk', 'Western', 'Noir', 
+                              'Mystery', 'Superhero', 'Historical', 'Space Opera', 
+                              'Lovecraftian', 'High Fantasy', 'Dark Fantasy', 
+                              'Urban Fantasy', 'Grimdark', 'Cozy', 'Comedy'
+                            ].map((t) => (
+                              <option key={t} value={t}>{t}</option>
+                            ))}
+                          </select>
+                          <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-ink/40">
+                            <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                              <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path>
+                            </svg>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Custom Setting</label>
-                      <textarea
-                        defaultValue={gameState?.customSetting || ''}
-                        onBlur={(e) => updateGameStateInFirestore(roomId, { customSetting: e.target.value })}
-                        placeholder="e.g. Set in a floating city..."
-                        className="w-full bg-ink/5 border border-border rounded-2xl p-4 text-sm focus:outline-none focus:border-accent/50 transition-all h-24 resize-none font-medium"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <button
-                        onClick={() => updateGameStateInFirestore(roomId, { isHardMode: !gameState?.isHardMode })}
-                        className={cn(
-                          "flex flex-col items-center gap-3 p-4 rounded-2xl border transition-all font-display font-bold text-[10px] uppercase tracking-widest",
-                          gameState?.isHardMode ? "bg-accent/10 border-accent text-accent" : "bg-ink/5 border-border text-ink/40"
-                        )}
-                      >
-                        <Sword className="w-5 h-5" />
-                        Hard Mode
-                      </button>
-                      <button
-                        onClick={() => updateGameStateInFirestore(roomId, { isPermadeath: !gameState?.isPermadeath })}
-                        className={cn(
-                          "flex flex-col items-center gap-3 p-4 rounded-2xl border transition-all font-display font-bold text-[10px] uppercase tracking-widest",
-                          gameState?.isPermadeath ? "bg-accent/10 border-accent text-accent" : "bg-ink/5 border-border text-ink/40"
-                        )}
-                      >
-                        <Shield className="w-5 h-5" />
-                        Permadeath
-                      </button>
-                    </div>
-
-                    <div className="pt-4 border-t border-border space-y-4">
                       <div className="space-y-2">
-                        <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Personal Gemini API Key</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="password"
-                            value={userApiKey}
-                            onChange={(e) => setUserApiKey(e.target.value)}
-                            placeholder="Paste your API key here..."
-                            className="flex-1 bg-ink/5 border border-border rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 transition-all font-mono"
-                          />
-                          <button
-                            onClick={handleSaveUserApiKey}
-                            disabled={isSavingApiKey}
-                            className="px-4 bg-accent text-white rounded-2xl font-display font-bold text-[10px] uppercase tracking-widest hover:scale-[1.05] active:scale-[0.95] transition-all disabled:opacity-50"
-                          >
-                            {isSavingApiKey ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
-                          </button>
-                        </div>
-                        <p className="text-[10px] text-ink/40 italic ml-1">
-                          Optional: Use your own key for higher limits. Stored securely in your account.
-                        </p>
+                        <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Custom Setting</label>
+                        <textarea
+                          defaultValue={gameState?.customSetting || ''}
+                          onBlur={(e) => updateGameStateInFirestore(roomId, { customSetting: e.target.value })}
+                          placeholder="e.g. Set in a floating city..."
+                          className="w-full bg-ink/5 border border-border rounded-2xl p-4 text-sm focus:outline-none focus:border-accent/50 transition-all h-24 resize-none font-medium"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <button
+                          onClick={() => updateGameStateInFirestore(roomId, { isHardMode: !gameState?.isHardMode })}
+                          className={cn(
+                            "flex flex-col items-center gap-3 p-4 rounded-2xl border transition-all font-display font-bold text-[10px] uppercase tracking-widest",
+                            gameState?.isHardMode ? "bg-accent/10 border-accent text-accent" : "bg-ink/5 border-border text-ink/40"
+                          )}
+                        >
+                          <Sword className="w-5 h-5" />
+                          Hard Mode
+                        </button>
+                        <button
+                          onClick={() => updateGameStateInFirestore(roomId, { isPermadeath: !gameState?.isPermadeath })}
+                          className={cn(
+                            "flex flex-col items-center gap-3 p-4 rounded-2xl border transition-all font-display font-bold text-[10px] uppercase tracking-widest",
+                            gameState?.isPermadeath ? "bg-accent/10 border-accent text-accent" : "bg-ink/5 border-border text-ink/40"
+                          )}
+                        >
+                          <Shield className="w-5 h-5" />
+                          Permadeath
+                        </button>
                       </div>
                     </div>
                   </>

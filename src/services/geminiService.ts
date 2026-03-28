@@ -1,47 +1,25 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 
 let ai: GoogleGenAI | null = null;
+let currentAiKey = '';
 let apiKey = '';
 
 export function setApiKey(newKey: string) {
   apiKey = newKey;
-  if (apiKey) {
-    ai = new GoogleGenAI({ apiKey });
-  }
 }
 
 export async function initializeGemini() {
-  if (ai && apiKey) return ai;
+  // process.env.API_KEY is populated automatically by window.aistudio.openSelectKey()
+  const currentKey = apiKey || process.env.API_KEY || process.env.GEMINI_API_KEY || '';
   
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    
-    const response = await fetch('/api/config', { signal: controller.signal });
-    clearTimeout(timeoutId);
-    
-    if (response.ok) {
-      const data = await response.json();
-      apiKey = data.geminiApiKey || '';
-    }
-  } catch (error) {
-    console.warn("Failed to fetch config from backend, falling back to env vars if available");
-  }
-  
-  // Fallback to import.meta.env if running purely client-side or if backend failed
-  if (!apiKey) {
-    apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
-  }
-  
-  if (!apiKey) {
+  if (!currentKey) {
     console.error("CRITICAL ERROR: GEMINI_API_KEY is missing! Please set it in your environment variables.");
-    // We initialize with a dummy key so the app doesn't crash on load, but it will fail on use
-    ai = new GoogleGenAI({ apiKey: 'missing_key' });
-  } else {
-    ai = new GoogleGenAI({ apiKey });
+    return new GoogleGenAI({ apiKey: 'missing_key' });
   }
   
-  return ai;
+  // Always create a new instance to ensure we pick up the latest key from the dialog
+  // Do not cache the instance.
+  return new GoogleGenAI({ apiKey: currentKey });
 }
 
 const STORY_SCHEMA = {
@@ -98,9 +76,6 @@ export async function generateStoryPart(
 ) {
   const aiClient = await initializeGemini();
   
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is missing. Please ensure it is set in your environment variables (e.g. Netlify UI or .env file) and restart the app.");
-  }
   const model = "gemini-3-flash-preview";
   
   const playerContext = players.map(p => 
@@ -188,9 +163,6 @@ export async function generateImage(prompt: string, aspectRatio: "1:1" | "16:9" 
 export async function generateAudio(text: string) {
   const aiClient = await initializeGemini();
   
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is missing. Please ensure it is set in your environment variables (e.g. Netlify UI or .env file) and restart the app.");
-  }
   const response = await aiClient.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
     contents: [{ parts: [{ text: `Deliver this in a slow, ethereal, and hauntingly mysterious voice, as if speaking from another dimension: ${text}` }] }],
