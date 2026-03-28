@@ -433,69 +433,6 @@ export default function App() {
     }
   };
 
-  const [isApiKeyMissing, setIsApiKeyMissing] = useState(false);
-
-  useEffect(() => {
-    // Check if API key is available
-    const checkApiKey = async () => {
-      try {
-        const response = await fetch('/api/config');
-        if (response.ok) {
-          const data = await response.json();
-          if (!data.geminiApiKey) {
-            setIsApiKeyMissing(true);
-          }
-        } else {
-          setIsApiKeyMissing(true);
-        }
-      } catch (e) {
-        setIsApiKeyMissing(true);
-      }
-    };
-    checkApiKey();
-  }, []);
-
-  const showApiKeyError = isApiKeyMissing || (error && error.includes("GEMINI_API_KEY"));
-
-  if (showApiKeyError) {
-    return (
-      <div className="min-h-screen bg-bg text-ink flex flex-col items-center justify-center p-4 font-sans relative overflow-hidden transition-colors duration-500">
-        <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
-          <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-accent/20 blur-[120px] rounded-full" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-blue-900/20 blur-[120px] rounded-full" />
-        </div>
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="w-full max-w-lg bg-bg border border-red-500/30 rounded-3xl p-8 space-y-6 shadow-2xl relative overflow-hidden z-10"
-        >
-          <div className="absolute top-0 left-0 w-full h-1 bg-red-500" />
-          <div className="flex items-center gap-4 text-red-500 mb-2">
-            <Shield className="w-8 h-8" />
-            <h2 className="text-2xl font-display font-bold">API Key Required</h2>
-          </div>
-          
-          <div className="space-y-4 text-ink/80 leading-relaxed">
-            <p>
-              Your adventure cannot begin because the <strong>Gemini API Key</strong> is missing or invalid.
-            </p>
-            <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/20 text-sm">
-              <h4 className="font-bold text-red-500 mb-2 uppercase tracking-wider text-xs">How to fix this:</h4>
-              <ul className="list-disc pl-5 space-y-2">
-                <li><strong>On Netlify:</strong> Go to Site configuration &gt; Environment variables. Add <code>GEMINI_API_KEY</code> and trigger a new deploy.</li>
-                <li><strong>In AI Studio:</strong> Add the key to your Secrets menu.</li>
-                <li><strong>Local Development:</strong> Add it to your <code>.env</code> file.</li>
-              </ul>
-            </div>
-            <p className="text-xs opacity-60 italic mt-4">
-              This screen will disappear once a valid key is provided and the app is reloaded.
-            </p>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
   if (!user) {
     return (
       <div className="min-h-screen bg-bg text-ink flex flex-col items-center justify-center p-4 font-sans relative overflow-hidden transition-colors duration-500">
@@ -530,9 +467,17 @@ export default function App() {
           
           <div className="space-y-4 px-4">
             <button
-              onClick={() => {
-                signInWithGoogle();
+              onClick={async () => {
                 soundManager.playClick();
+                try {
+                  const result = await signInWithGoogle();
+                  if (result && result.user && userApiKey) {
+                    await updateUserSettings(result.user.uid, { geminiApiKey: userApiKey });
+                    setApiKey(userApiKey);
+                  }
+                } catch (err) {
+                  console.error(err);
+                }
               }}
               onMouseEnter={() => soundManager.playHover()}
               className="w-full py-5 px-8 bg-ink text-bg font-display font-bold text-lg rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 group shadow-2xl shadow-ink/10"
@@ -541,7 +486,23 @@ export default function App() {
               Begin Your Journey
             </button>
             
-            <div className="flex items-center justify-center gap-6 pt-8 opacity-40">
+            <div className="pt-6 space-y-2">
+              <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Personal Gemini API Key (Required)</label>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={userApiKey}
+                  onChange={(e) => setUserApiKey(e.target.value)}
+                  placeholder="Paste your API key here..."
+                  className="flex-1 glass rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 transition-all font-mono text-center"
+                />
+              </div>
+              <p className="text-[10px] text-ink/40 italic ml-1 text-center">
+                Your key is synced securely with your account upon login.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center gap-6 pt-4 opacity-40">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em]">
                 <Users className="w-4 h-4" /> Multiplayer
               </div>
@@ -869,6 +830,38 @@ export default function App() {
               >
                 Join
               </button>
+            </div>
+
+            <div className="relative py-4">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-[10px] uppercase tracking-[0.3em]">
+                <span className="bg-bg px-4 text-ink/30 font-bold">API Key</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Personal Gemini API Key</label>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={userApiKey}
+                  onChange={(e) => setUserApiKey(e.target.value)}
+                  placeholder="Paste your API key here..."
+                  className="flex-1 glass rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-accent/50 transition-all font-mono"
+                />
+                <button
+                  onClick={handleSaveUserApiKey}
+                  disabled={isSavingApiKey}
+                  className="px-6 bg-accent text-white rounded-2xl font-display font-bold text-[10px] uppercase tracking-widest hover:scale-[1.05] active:scale-[0.95] transition-all disabled:opacity-50"
+                >
+                  {isSavingApiKey ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                </button>
+              </div>
+              <p className="text-[10px] text-ink/40 italic ml-1 text-center">
+                Required to play. Synced securely with your account.
+              </p>
             </div>
           </div>
         </div>
