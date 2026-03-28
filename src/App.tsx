@@ -111,36 +111,22 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-    let timeoutId: any;
-
-    const checkAuth = () => {
-      if (!auth) {
-        timeoutId = setTimeout(checkAuth, 100);
-        return;
-      }
-      unsubscribe = onAuthStateChanged(auth, async (u) => {
-        setUser(u);
-        if (u) {
-          try {
-            const settings = await getUserSettings(u.uid);
-            if (settings?.geminiApiKey) {
-              setUserApiKey(settings.geminiApiKey);
-              setApiKey(settings.geminiApiKey);
-            }
-          } catch (err) {
-            console.error("Failed to fetch user settings", err);
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      setUser(u);
+      if (u) {
+        try {
+          const settings = await getUserSettings(u.uid);
+          if (settings?.geminiApiKey) {
+            setUserApiKey(settings.geminiApiKey);
+            setApiKey(settings.geminiApiKey);
           }
+        } catch (err) {
+          console.error("Failed to fetch user settings", err);
         }
-      });
-    };
+      }
+    });
     
-    checkAuth();
-    
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      if (unsubscribe) unsubscribe();
-    };
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
