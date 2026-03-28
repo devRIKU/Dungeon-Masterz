@@ -111,18 +111,36 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!auth) return;
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
-        const settings = await getUserSettings(u.uid);
-        if (settings?.geminiApiKey) {
-          setUserApiKey(settings.geminiApiKey);
-          setApiKey(settings.geminiApiKey);
-        }
+    let unsubscribe: (() => void) | undefined;
+    let timeoutId: any;
+
+    const checkAuth = () => {
+      if (!auth) {
+        timeoutId = setTimeout(checkAuth, 100);
+        return;
       }
-    });
-    return () => unsubscribe();
+      unsubscribe = onAuthStateChanged(auth, async (u) => {
+        setUser(u);
+        if (u) {
+          try {
+            const settings = await getUserSettings(u.uid);
+            if (settings?.geminiApiKey) {
+              setUserApiKey(settings.geminiApiKey);
+              setApiKey(settings.geminiApiKey);
+            }
+          } catch (err) {
+            console.error("Failed to fetch user settings", err);
+          }
+        }
+      });
+    };
+    
+    checkAuth();
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -467,17 +485,19 @@ export default function App() {
           
           <div className="space-y-4 px-4">
             <button
-              onClick={async () => {
+              onClick={() => {
                 soundManager.playClick();
-                try {
-                  const result = await signInWithGoogle();
-                  if (result && result.user && userApiKey) {
-                    await updateUserSettings(result.user.uid, { geminiApiKey: userApiKey });
-                    setApiKey(userApiKey);
-                  }
-                } catch (err) {
-                  console.error(err);
-                }
+                signInWithGoogle()
+                  .then(async (result) => {
+                    if (result && result.user && userApiKey) {
+                      await updateUserSettings(result.user.uid, { geminiApiKey: userApiKey });
+                      setApiKey(userApiKey);
+                    }
+                  })
+                  .catch((err) => {
+                    console.error(err);
+                    setError("Login failed: " + (err.message || String(err)));
+                  });
               }}
               onMouseEnter={() => soundManager.playHover()}
               className="w-full py-5 px-8 bg-ink text-bg font-display font-bold text-lg rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 group shadow-2xl shadow-ink/10"
@@ -521,6 +541,23 @@ export default function App() {
         >
           {theme === 'dark' ? <Sparkles className="w-5 h-5" /> : <Shield className="w-5 h-5" />}
         </button>
+
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 bg-red-500 text-white font-medium rounded-full shadow-lg flex items-center gap-3"
+            >
+              <Shield className="w-4 h-4" />
+              {error}
+              <button onClick={() => setError(null)} className="ml-2 hover:opacity-70">
+                <X className="w-4 h-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
