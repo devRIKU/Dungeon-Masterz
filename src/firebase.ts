@@ -18,7 +18,6 @@ export const initializeFirebase = async () => {
     
     if (!res.ok) throw new Error(`Failed to fetch config: ${res.statusText}`);
     const data = await res.json();
-    console.log("Config data received:", data);
     
     if (data.firebaseConfig && data.firebaseConfig.apiKey) {
       app = initializeApp(data.firebaseConfig);

@@ -111,13 +111,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    console.log("App mounted. auth is:", !!auth);
-    if (!auth) {
-      console.warn("Auth is null on mount. onAuthStateChanged will not be attached.");
-      return;
-    }
+    if (!auth) return;
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      console.log("Auth state changed. User:", u?.uid);
       setUser(u);
       if (u) {
         const settings = await getUserSettings(u.uid);
@@ -455,16 +450,8 @@ export default function App() {
           <div className="space-y-4 px-4">
             <button
               onClick={() => {
+                signInWithGoogle();
                 soundManager.playClick();
-                try {
-                  signInWithGoogle().catch(err => {
-                    console.error("Sign in failed:", err);
-                    setError("Failed to sign in. Please try again or check your configuration.");
-                  });
-                } catch (err) {
-                  console.error("Sign in error:", err);
-                  setError("Authentication is not configured properly.");
-                }
               }}
               onMouseEnter={() => soundManager.playHover()}
               className="w-full py-5 px-8 bg-ink text-bg font-display font-bold text-lg rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 group shadow-2xl shadow-ink/10"
@@ -492,17 +479,6 @@ export default function App() {
         >
           {theme === 'dark' ? <Sparkles className="w-5 h-5" /> : <Shield className="w-5 h-5" />}
         </button>
-        <AnimatePresence>
-          {error && (
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 bg-red-500 text-white font-medium rounded-full shadow-lg flex items-center gap-3">
-              <Shield className="w-4 h-4" />
-              {error}
-              <button onClick={() => setError(null)} className="ml-2 hover:opacity-70">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </AnimatePresence>
       </div>
     );
   }
