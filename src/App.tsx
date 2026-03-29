@@ -162,7 +162,9 @@ export default function App() {
       phoneNumber: null,
       photoURL: null,
     } as any);
-    setIsSettingsOpen(true); // Prompt for API key immediately
+    if (!apiKey) {
+      setIsSettingsOpen(true); // Prompt for API key immediately if not entered
+    }
   };
 
   const isAIStudio = () => {
@@ -588,13 +590,29 @@ export default function App() {
           </p>
           
           <div className="space-y-4 px-4">
+            <div className="relative group">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Shield className="w-5 h-5 text-accent opacity-50 group-focus-within:opacity-100 transition-opacity" />
+              </div>
+              <input
+                type="password"
+                placeholder="Enter Gemini API Key (Optional for Google Login)"
+                value={apiKey}
+                onChange={(e) => {
+                  setApiKeyLocal(e.target.value);
+                  setApiKey(e.target.value);
+                }}
+                className="w-full py-4 pl-12 pr-4 glass text-ink font-medium text-sm rounded-2xl focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all"
+              />
+            </div>
+
             <button
               onClick={async () => {
                 soundManager.playClick();
                 try {
                   const result = await signInWithGoogle();
                   
-                  // Automatically ask Google for an API key on the user's behalf
+                  // Automatically ask Google for an API key on the user's behalf (AI Studio only)
                   if (typeof window !== 'undefined' && (window as any).aistudio) {
                     const hasKey = await (window as any).aistudio.hasSelectedApiKey();
                     if (!hasKey) {
@@ -602,9 +620,13 @@ export default function App() {
                     }
                   }
 
-                  if (result && result.user && userApiKey) {
-                    await updateUserSettings(result.user.uid, { geminiApiKey: userApiKey });
-                    setApiKey(userApiKey);
+                  if (result && result.user) {
+                    const keyToSave = apiKey || userApiKey;
+                    if (keyToSave) {
+                      await updateUserSettings(result.user.uid, { geminiApiKey: keyToSave });
+                      setUserApiKey(keyToSave);
+                      setApiKey(keyToSave);
+                    }
                   }
                 } catch (err: any) {
                   console.error(err);
