@@ -200,42 +200,26 @@ export default function App() {
     }
   }, []);
 
-  const fetchConfig = async () => {
-    try {
-      const res = await fetch('/api/config');
-      if (res.ok) {
-        const config = await res.json();
-        if (config.geminiApiKey) {
-          setApiKeyLocal(config.geminiApiKey);
-          setUserApiKey(config.geminiApiKey);
-          setApiKey(config.geminiApiKey);
-          return config.geminiApiKey;
-        }
-      }
-    } catch (err) {
-      console.error("Failed to fetch config", err);
-    }
-    return null;
-  };
-
+  // Load API Key from localStorage on mount
   useEffect(() => {
-    fetchConfig();
+    const cachedKey = localStorage.getItem('gemini_api_key');
+    if (cachedKey) {
+      setApiKeyLocal(cachedKey);
+      setUserApiKey(cachedKey);
+      setApiKey(cachedKey);
+    }
   }, []);
+
+  // Persist API Key to localStorage whenever it changes
+  useEffect(() => {
+    if (apiKey) {
+      localStorage.setItem('gemini_api_key', apiKey);
+    }
+  }, [apiKey]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      if (u) {
-        try {
-          const settings = await getUserSettings(u.uid);
-          if (settings?.geminiApiKey) {
-            setUserApiKey(settings.geminiApiKey);
-            setApiKey(settings.geminiApiKey);
-          }
-        } catch (err) {
-          console.error("Failed to fetch user settings", err);
-        }
-      }
     });
     
     return () => unsubscribe();
@@ -347,23 +331,12 @@ export default function App() {
   const startGame = async () => {
     if (!gameState || gameState.hostId !== user?.uid) return;
     
-    // Check if API key is available for anonymous users
-    if (isAnonymous && !userApiKey && !apiKey) {
+    // Check if API key is available
+    if (!userApiKey && !apiKey) {
       setIsSettingsOpen(true);
-      setError("A Gemini API Key is required to play anonymously. Please enter one in Settings.");
+      setError("A Gemini API Key is required. Please enter one in Settings.");
       soundManager.playError();
       return;
-    }
-
-    // For logged-in users, if no key is available, ask the platform to provide one
-    if (!isAnonymous && !userApiKey && !apiKey) {
-      if (typeof window !== 'undefined' && (window as any).aistudio) {
-        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-          await (window as any).aistudio.openSelectKey();
-          await fetchConfig();
-        }
-      }
     }
 
     await updateGameStateInFirestore(roomId, { isGenerating: true });
@@ -420,22 +393,12 @@ export default function App() {
   const handleMakeChoice = async (choice?: StoryChoice, customAction?: string) => {
     if (!gameState || gameState.isGenerating) return;
 
-    // Check if API key is available for anonymous users
-    if (isAnonymous && !userApiKey && !apiKey) {
+    // Check if API key is available
+    if (!userApiKey && !apiKey) {
       setIsSettingsOpen(true);
-      setError("A Gemini API Key is required to play anonymously. Please enter one in Settings.");
+      setError("A Gemini API Key is required. Please enter one in Settings.");
       soundManager.playError();
       return;
-    }
-
-    // For logged-in users, if no key is available, ask the platform to provide one
-    if (!isAnonymous && !userApiKey && !apiKey) {
-      if (typeof window !== 'undefined' && (window as any).aistudio) {
-        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-          await (window as any).aistudio.openSelectKey();
-        }
-      }
     }
 
     // Broadcast that we're generating
@@ -633,25 +596,7 @@ export default function App() {
               onClick={async () => {
                 soundManager.playClick();
                 try {
-                  const result = await signInWithGoogle();
-                  
-                  // Automatically ask Google for an API key on the user's behalf (AI Studio only)
-                  if (typeof window !== 'undefined' && (window as any).aistudio) {
-                    const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-                    if (!hasKey) {
-                      await (window as any).aistudio.openSelectKey();
-                      await fetchConfig();
-                    }
-                  }
-
-                  if (result && result.user) {
-                    const keyToSave = apiKey || userApiKey;
-                    if (keyToSave) {
-                      await updateUserSettings(result.user.uid, { geminiApiKey: keyToSave });
-                      setUserApiKey(keyToSave);
-                      setApiKey(keyToSave);
-                    }
-                  }
+                  await signInWithGoogle();
                 } catch (err: any) {
                   console.error(err);
                   setError("Login failed: " + (err.message || String(err)));
@@ -717,14 +662,11 @@ export default function App() {
   }
 
   const handleSaveUserApiKey = async () => {
-    if (!user) return;
     setIsSavingApiKey(true);
     try {
       setApiKey(userApiKey);
       setApiKeyLocal(userApiKey);
-      if (!user.isAnonymous) {
-        await updateUserSettings(user.uid, { geminiApiKey: userApiKey });
-      }
+      localStorage.setItem('gemini_api_key', userApiKey);
       soundManager.playClick();
       setIsSettingsOpen(false);
     } catch (err) {
