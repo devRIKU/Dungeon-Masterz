@@ -5,20 +5,22 @@ let currentAiKey = '';
 let apiKey = '';
 
 export function setApiKey(newKey: string) {
+  console.log(`[Gemini] API Key set (length: ${newKey?.length || 0})`);
   apiKey = newKey;
 }
 
 export async function initializeGemini() {
-  // process.env.API_KEY is populated automatically by window.aistudio.openSelectKey()
-  const currentKey = apiKey || process.env.API_KEY || process.env.GEMINI_API_KEY || '';
+  const currentKey = apiKey || '';
   
   if (!currentKey) {
-    console.error("CRITICAL ERROR: GEMINI_API_KEY is missing! Please set it in your environment variables.");
+    console.error("CRITICAL ERROR: Gemini API Key is missing! Please provide one in the settings.");
+    // Return a dummy client that will fail gracefully or prompt for key
     return new GoogleGenAI({ apiKey: 'missing_key' });
   }
   
+  console.log(`[Gemini] Initializing with key: ${currentKey.substring(0, 4)}...${currentKey.substring(currentKey.length - 4)}`);
+  
   // Always create a new instance to ensure we pick up the latest key from the dialog
-  // Do not cache the instance.
   return new GoogleGenAI({ apiKey: currentKey });
 }
 

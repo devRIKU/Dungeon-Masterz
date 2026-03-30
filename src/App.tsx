@@ -200,6 +200,28 @@ export default function App() {
     }
   }, []);
 
+  const fetchConfig = async () => {
+    try {
+      const res = await fetch('/api/config');
+      if (res.ok) {
+        const config = await res.json();
+        if (config.geminiApiKey) {
+          setApiKeyLocal(config.geminiApiKey);
+          setUserApiKey(config.geminiApiKey);
+          setApiKey(config.geminiApiKey);
+          return config.geminiApiKey;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch config", err);
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    fetchConfig();
+  }, []);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
@@ -339,6 +361,7 @@ export default function App() {
         const hasKey = await (window as any).aistudio.hasSelectedApiKey();
         if (!hasKey) {
           await (window as any).aistudio.openSelectKey();
+          await fetchConfig();
         }
       }
     }
@@ -617,6 +640,7 @@ export default function App() {
                     const hasKey = await (window as any).aistudio.hasSelectedApiKey();
                     if (!hasKey) {
                       await (window as any).aistudio.openSelectKey();
+                      await fetchConfig();
                     }
                   }
 
