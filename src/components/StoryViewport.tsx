@@ -16,6 +16,7 @@ type StoryLayout = {
   fontSize: number;
   lineHeight: number;
   lines: LayoutLinesResult['lines'];
+  blockWidth: number;
 };
 
 const preparedCache = new Map<string, PreparedTextWithSegments>();
@@ -67,11 +68,16 @@ function computeLayout(text: string, width: number, height: number) {
     const lineHeight = Math.max(Math.round(fontSize * LINE_HEIGHT_RATIO), fontSize + 6);
     const prepared = getPrepared(text, font);
     const layout = layoutWithLines(prepared, width, lineHeight);
+    const blockWidth = Math.min(
+      width,
+      Math.max(...layout.lines.map((line) => Math.ceil(line.width)), 0) + 2
+    );
     return {
       fontSize,
       lineHeight,
       lines: layout.lines,
       height: layout.height,
+      blockWidth,
     };
   };
 
@@ -123,11 +129,12 @@ export default function StoryViewport({ text, className }: StoryViewportProps) {
           style={{
             fontSize: `${layout.fontSize}px`,
             lineHeight: `${layout.lineHeight}px`,
+            width: `${layout.blockWidth}px`,
           }}
         >
           {layout.lines.map((line, index) => (
             <div key={`${index}-${line.start.segmentIndex}-${line.start.graphemeIndex}`} className="pretext-story-line">
-              {line.text}
+              {line.text || '\u00A0'}
             </div>
           ))}
         </div>
