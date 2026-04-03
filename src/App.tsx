@@ -53,6 +53,34 @@ const garbleText = (text: string, strength: number) => {
   }).join('');
 };
 
+const getFriendlyAiError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+
+  if (
+    normalized.includes("api key") ||
+    normalized.includes("403") ||
+    normalized.includes("401") ||
+    normalized.includes("permission")
+  ) {
+    return "Your Gemini API key is missing, invalid, or doesn’t have access. Update it in Settings and try again.";
+  }
+
+  if (normalized.includes("quota") || normalized.includes("rate limit") || normalized.includes("429")) {
+    return "Gemini is rate-limiting this request right now. Wait a moment and try again.";
+  }
+
+  if (normalized.includes("model") || normalized.includes("unsupported")) {
+    return "The configured Gemini model was rejected. The app has been updated to use a safer default, so try again.";
+  }
+
+  if (message.length > 140) {
+    return `${message.slice(0, 137)}...`;
+  }
+
+  return message;
+};
+
 export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [isOptionsCollapsed, setIsOptionsCollapsed] = useState(false);
@@ -380,12 +408,7 @@ export default function App() {
       soundManager.playSuccess();
     } catch (err) {
       console.error(err);
-      const errMsg = err instanceof Error ? err.message : String(err);
-      if (errMsg.includes("GEMINI_API_KEY") || errMsg.toLowerCase().includes("api key") || errMsg.includes("403") || errMsg.includes("400")) {
-        setError("A Gemini API Key is required. Please select one when prompted or enter it in Settings.");
-      } else {
-        setError("Failed to start the adventure. Please try again.");
-      }
+      setError(getFriendlyAiError(err));
       await updateGameStateInFirestore(roomId, { isGenerating: false });
     }
   };
@@ -445,12 +468,7 @@ export default function App() {
       soundManager.playSuccess();
     } catch (err) {
       console.error(err);
-      const errMsg = err instanceof Error ? err.message : String(err);
-      if (errMsg.includes("GEMINI_API_KEY") || errMsg.toLowerCase().includes("api key") || errMsg.includes("403") || errMsg.includes("400")) {
-        setError("A Gemini API Key is required. Please select one when prompted or enter it in Settings.");
-      } else {
-        setError("The DM is momentarily speechless. Try again.");
-      }
+      setError(getFriendlyAiError(err));
       await updateGameStateInFirestore(roomId, { isGenerating: false });
     }
   };
@@ -506,9 +524,9 @@ export default function App() {
       }
     } catch (err) {
       console.error("Audio generation failed:", err);
-      const errMsg = err instanceof Error ? err.message : String(err);
-      if (errMsg.includes("GEMINI_API_KEY") || errMsg.toLowerCase().includes("api key") || errMsg.includes("403") || errMsg.includes("400")) {
-        setError("A Gemini API Key is required. Please select one when prompted or enter it in Settings.");
+      const friendlyError = getFriendlyAiError(err);
+      if (friendlyError.toLowerCase().includes("api key")) {
+        setError(friendlyError);
         setIsSettingsOpen(true);
       } else {
         // Fallback to local speech if Gemini fails
@@ -534,10 +552,7 @@ export default function App() {
       }
     } catch (err) {
       console.error(err);
-      const errMsg = err instanceof Error ? err.message : String(err);
-      if (errMsg.includes("GEMINI_API_KEY") || errMsg.toLowerCase().includes("api key") || errMsg.includes("403") || errMsg.includes("400")) {
-        setError("GEMINI_API_KEY is missing or invalid. Please check your configuration.");
-      }
+      setError(getFriendlyAiError(err));
     } finally {
       setIsGeneratingArt(false);
     }

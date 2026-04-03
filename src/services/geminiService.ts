@@ -4,24 +4,41 @@ let ai: GoogleGenAI | null = null;
 let currentAiKey = '';
 let apiKey = '';
 
+type StoryResult = {
+  text: string;
+  signalStrength: number;
+  choices: { id: string; text: string }[];
+  npcs?: {
+    id: string;
+    name: string;
+    description: string;
+    photoURL?: string;
+    isNearby: boolean;
+  }[];
+};
+
 export function setApiKey(newKey: string) {
-  console.log(`[Gemini] API Key set (length: ${newKey?.length || 0})`);
-  apiKey = newKey;
+  const trimmedKey = newKey?.trim() || '';
+  console.log(`[Gemini] API Key set (length: ${trimmedKey.length})`);
+  apiKey = trimmedKey;
 }
 
 export async function initializeGemini() {
   const currentKey = apiKey || '';
-  
+
   if (!currentKey) {
-    console.error("CRITICAL ERROR: Gemini API Key is missing! Please provide one in the settings.");
-    // Return a dummy client that will fail gracefully or prompt for key
-    return new GoogleGenAI({ apiKey: 'missing_key' });
+    throw new Error("Gemini API key is missing. Add one in Settings before starting the adventure.");
   }
-  
+
   console.log(`[Gemini] Initializing with key: ${currentKey.substring(0, 4)}...${currentKey.substring(currentKey.length - 4)}`);
-  
-  // Always create a new instance to ensure we pick up the latest key from the dialog
-  return new GoogleGenAI({ apiKey: currentKey });
+
+  // Recreate the client whenever the key changes so we always use the latest saved value.
+  if (!ai || currentAiKey !== currentKey) {
+    ai = new GoogleGenAI({ apiKey: currentKey });
+    currentAiKey = currentKey;
+  }
+
+  return ai;
 }
 
 const STORY_SCHEMA = {
@@ -66,6 +83,66 @@ const STORY_SCHEMA = {
   required: ["text", "choices", "signalStrength"]
 };
 
+function normalizeStoryResult(raw: unknown): StoryResult {
+  if (!raw || typeof raw !== 'object') {
+    throw new Error("Gemini returned an empty story response.");
+  }
+
+  const candidate = raw as Partial<StoryResult>;
+  const text = typeof candidate.text === 'string' ? candidate.text.trim() : '';
+  const signalStrength =
+    typeof candidate.signalStrength === 'number'
+      ? Math.min(1, Math.max(0, candidate.signalStrength))
+      : 1;
+
+  const choices = Array.isArray(candidate.choices)
+    ? candidate.choices
+        .filter((choice) => !!choice && typeof choice === 'object')
+        .map((choice, index) => ({
+          id:
+            typeof (choice as { id?: unknown }).id === 'string' &&
+            (choice as { id?: string }).id?.trim()
+              ? (choice as { id: string }).id
+              : `choice-${index + 1}`,
+          text:
+            typeof (choice as { text?: unknown }).text === 'string'
+              ? (choice as { text: string }).text.trim()
+              : '',
+        }))
+        .filter((choice) => choice.text.length > 0)
+    : [];
+
+  const npcs = Array.isArray(candidate.npcs)
+    ? candidate.npcs
+        .filter((npc): npc is NonNullable<StoryResult['npcs']>[number] => !!npc && typeof npc === 'object')
+        .map((npc, index) => ({
+          id: typeof npc.id === 'string' && npc.id.trim() ? npc.id : `npc-${index + 1}`,
+          name: typeof npc.name === 'string' ? npc.name.trim() : 'Unknown',
+          description: typeof npc.description === 'string' ? npc.description.trim() : '',
+          photoURL: typeof npc.photoURL === 'string' ? npc.photoURL : undefined,
+          isNearby: Boolean(npc.isNearby),
+        }))
+    : [];
+
+  if (!text) {
+    throw new Error("Gemini returned a story without narrative text.");
+  }
+
+  return {
+    text,
+    signalStrength,
+    choices:
+      choices.length > 0
+        ? choices
+        : [
+            { id: 'choice-1', text: 'Investigate the strange noise' },
+            { id: 'choice-2', text: 'Stay together and look for clues' },
+            { id: 'choice-3', text: 'Retreat and make a careful plan' },
+          ],
+    npcs,
+  };
+}
+
 export async function generateStoryPart(
   history: any[], 
   players: any[], 
@@ -77,8 +154,8 @@ export async function generateStoryPart(
   isPermadeath?: boolean
 ) {
   const aiClient = await initializeGemini();
-  
-  const model = "gemini-3-flash-preview";
+
+  const model = "gemini-2.5-flash";
   
   const playerContext = players.map(p => 
     `${p.displayName} (from ${p.hometown || 'unknown'}, fear: ${p.fear || 'unknown'})`
@@ -107,7 +184,6 @@ export async function generateStoryPart(
     - The narrative should be eerie, mysterious, and occasionally action-packed.
     - **PACING**: Keep the pacing slow and deliberate.
     - **START**: Begin with a peaceful scene that slowly hints at mystery.
-    - **PLACES**: Use Google Search for real-world details if relevant.
     - **COMMUNICATION**: Determine "signalStrength" (0.0 to 1.0).
     - **CUSTOM ACTIONS**: Incorporate player custom actions.
     - **NPCs**: Introduce and manage NPCs.
@@ -137,18 +213,29 @@ export async function generateStoryPart(
     });
   }
 
-  const response = await aiClient.models.generateContent({
-    model,
-    contents,
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: STORY_SCHEMA,
-      tools: [{ googleSearch: {} }]
-    }
-  });
+  try {
+    const response = await aiClient.models.generateContent({
+      model,
+      contents,
+      config: {
+        systemInstruction,
+        temperature: 0.8,
+        responseMimeType: "application/json",
+        responseSchema: STORY_SCHEMA,
+      }
+    });
 
-  return JSON.parse(response.text);
+    const rawText = response.text?.trim();
+    if (!rawText) {
+      throw new Error("Gemini returned an empty response.");
+    }
+
+    return normalizeStoryResult(JSON.parse(rawText));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[Gemini] Story generation failed:", message);
+    throw new Error(`Story generation failed: ${message}`);
+  }
 }
 
 export async function generateImage(prompt: string, aspectRatio: "1:1" | "16:9" | "9:16" = "1:1") {
@@ -164,20 +251,26 @@ export async function generateImage(prompt: string, aspectRatio: "1:1" | "16:9" 
 
 export async function generateAudio(text: string) {
   const aiClient = await initializeGemini();
-  
-  const response = await aiClient.models.generateContent({
-    model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text: `Deliver this in a slow, ethereal, and hauntingly mysterious voice, as if speaking from another dimension: ${text}` }] }],
-    config: {
-      responseModalities: [Modality.AUDIO],
-      speechConfig: {
-        voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: 'Charon' },
+
+  try {
+    const response = await aiClient.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text: `Deliver this in a slow, ethereal, and hauntingly mysterious voice, as if speaking from another dimension: ${text}` }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: 'Charon' },
+          },
         },
       },
-    },
-  });
+    });
 
-  const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-  return base64Audio || null;
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    return base64Audio || null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[Gemini] Audio generation failed:", message);
+    throw new Error(`Audio generation failed: ${message}`);
+  }
 }
