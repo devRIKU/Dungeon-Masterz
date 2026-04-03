@@ -804,3 +804,171 @@ export default function App() {
             />
           )}
         </section>
+
+        <aside className="rail-column">
+          <section className="panel">
+            <p className="eyebrow">Party</p>
+            <h3 className="panel-title">Who is in the room</h3>
+            <div className="avatar-list">
+              {gameState.players.map((player) => (
+                <div key={player.uid} className="avatar-row">
+                  <img
+                    src={player.characterArtUrl || player.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.uid}`}
+                    className="avatar-image"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div>
+                    <div className="avatar-name">{player.displayName}</div>
+                    <div className="avatar-meta">{player.isHost ? 'Host' : player.hometown || 'Wanderer'}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {gameState.npcs && gameState.npcs.length > 0 ? (
+            <section className="panel">
+              <p className="eyebrow">Nearby Figures</p>
+              <h3 className="panel-title">NPC presence</h3>
+              <div className="avatar-list">
+                {gameState.npcs.map((npc) => (
+                  <div key={npc.id} className={cn('avatar-row', !npc.isNearby && 'avatar-row--dim')}>
+                    <img
+                      src={npc.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${npc.id}`}
+                      className="avatar-image avatar-image--small"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div>
+                      <div className="avatar-name">{npc.name}</div>
+                      <div className="avatar-meta">{npc.isNearby ? 'Nearby' : 'Distant'}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          <section className="panel rail-chat">
+            <div className="panel-heading-row">
+              <div>
+                <p className="eyebrow">Walkie-Talkie</p>
+                <h3 className="panel-title">Party chatter</h3>
+              </div>
+              <SignalBadge strength={gameState.signalStrength ?? 1} />
+            </div>
+
+            <div ref={chatScrollRef} className="chat-log">
+              {messages.length === 0 ? (
+                <div className="chat-empty">No voices on the line yet.</div>
+              ) : (
+                messages.map((message) => (
+                  <div key={message.id} className="chat-bubble">
+                    <div className="chat-bubble-meta">{message.senderName}</div>
+                    <div className="chat-bubble-copy">{garbleText(message.text, gameState.signalStrength)}</div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <form onSubmit={handleSendMessage} className="chat-form">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(event) => setChatInput(event.target.value)}
+                className="ritual-input ritual-input--compact"
+                placeholder="Send a party message or address an NPC with @name"
+              />
+              <button type="submit" className="ghost-button">
+                <Send className="h-4 w-4" />
+                Send
+              </button>
+            </form>
+          </section>
+        </aside>
+      </main>
+
+      <AnimatePresence>
+        {isSettingsOpen ? (
+          <div className="overlay-shell">
+            <div className="overlay-backdrop" onClick={() => setIsSettingsOpen(false)} />
+            <motion.div className="modal-panel" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div className="panel-heading-row">
+                <div>
+                  <p className="eyebrow">Settings</p>
+                  <h3 className="panel-title">Narration and access</h3>
+                </div>
+                <button type="button" className="icon-button" onClick={() => setIsSettingsOpen(false)}>
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="form-grid">
+                <input
+                  type="password"
+                  value={userApiKey}
+                  onChange={(event) => setUserApiKey(event.target.value)}
+                  className="ritual-input ritual-input--compact"
+                  placeholder="Gemini API key"
+                />
+                <button type="button" onClick={handleSaveUserApiKey} className="primary-button" disabled={isSavingApiKey}>
+                  {isSavingApiKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+                  Save key
+                </button>
+                <button type="button" onClick={leaveCurrentGame} className="ghost-button">
+                  <LogOut className="h-4 w-4" />
+                  Leave current room
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isHistoryOpen ? (
+          <div className="overlay-shell">
+            <div className="overlay-backdrop" onClick={() => setIsHistoryOpen(false)} />
+            <motion.div className="modal-panel modal-panel--wide" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div className="panel-heading-row">
+                <div>
+                  <p className="eyebrow">Adventure History</p>
+                  <h3 className="panel-title">Previous scenes</h3>
+                </div>
+                <button type="button" className="icon-button" onClick={() => setIsHistoryOpen(false)}>
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="history-list">
+                {gameState.history.length === 0 ? (
+                  <div className="chat-empty">The archive is still empty.</div>
+                ) : (
+                  gameState.history.map((node, index) => (
+                    <article key={node.id} className="history-entry">
+                      <div className="history-entry-meta">
+                        <span className="eyebrow">Chapter {String(index + 1).padStart(2, '0')}</span>
+                        {node.choiceMade ? <span className="choice-made">Choice: {node.choiceMade}</span> : null}
+                      </div>
+                      <p className="history-entry-copy">{node.text}</p>
+                    </article>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {error ? (
+          <motion.div className="toast toast--error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <span>{error}</span>
+            <button type="button" onClick={() => setError(null)}>
+              <X className="h-4 w-4" />
+            </button>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
