@@ -1,5 +1,5 @@
 import { auth, db } from '../firebase';
-import { doc, setDoc, getDoc, updateDoc, onSnapshot, collection, addDoc, query, orderBy, limit } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, onSnapshot, collection, addDoc, query, orderBy, limit } from '@firebase/firestore';
 import { GameState, Player, StoryNode, StoryChoice, ChatMessage } from '../types';
 
 enum OperationType {

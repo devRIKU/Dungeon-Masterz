@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, type User } from '@firebase/auth';
 import { auth, signInWithGoogle } from './firebase';
 import { GameState, Player, StoryNode, StoryChoice, ChatMessage } from './types';
 import { generateStoryPart, generateAudio, generateImage, setApiKey } from './services/geminiService';
@@ -43,7 +43,7 @@ import {
   History,
   Sparkles
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from './lib/motion';
 
 const garbleText = (text: string, strength: number) => {
   if (strength >= 1) return text;
