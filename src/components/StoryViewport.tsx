@@ -1,148 +1,51 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { layoutWithLines, prepareWithSegments, type LayoutLinesResult, type PreparedTextWithSegments } from '@chenglou/pretext';
-
-const STORY_FONT_FAMILY = '"Cormorant Garamond", Georgia, serif';
-const STORY_FONT_WEIGHT = 600;
-const MIN_FONT_SIZE = 16;
-const MAX_FONT_SIZE = 40;
-const LINE_HEIGHT_RATIO = 1.38;
+import React, { useLayoutEffect, useRef } from 'react';
 
 type StoryViewportProps = {
   text: string;
   className?: string;
 };
 
-type StoryLayout = {
-  fontSize: number;
-  lineHeight: number;
-  lines: LayoutLinesResult['lines'];
-  blockWidth: number;
-};
+export default function StoryViewport({ text, className = '' }: StoryViewportProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
 
-const preparedCache = new Map<string, PreparedTextWithSegments>();
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-function getPrepared(text: string, font: string) {
-  const key = `${font}__${text}`;
-  const cached = preparedCache.get(key);
-  if (cached) return cached;
-  const prepared = prepareWithSegments(text, font, { whiteSpace: 'pre-wrap' });
-  preparedCache.set(key, prepared);
-  return prepared;
-}
+    let scale = 1.0;
+    const minScale = 0.65; // Minimum size bound
 
-function useElementSize<T extends HTMLElement>() {
-  const ref = useRef<T | null>(null);
-  const [size, setSize] = useState({ width: 0, height: 0 });
+    // Reset before measuring
+    container.style.setProperty('--font-scale', '1');
 
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-
-    const update = () => {
-      const next = {
-        width: node.clientWidth,
-        height: node.clientHeight,
-      };
-      setSize((current) => (
-        current.width === next.width && current.height === next.height ? current : next
-      ));
-    };
-
-    update();
-
-    const observer = new ResizeObserver(() => update());
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  return { ref, size };
-}
-
-function computeLayout(text: string, width: number, height: number) {
-  if (!text.trim() || width <= 0 || height <= 0) {
-    return null;
-  }
-
-  const fitForSize = (fontSize: number) => {
-    const font = `${STORY_FONT_WEIGHT} ${fontSize}px ${STORY_FONT_FAMILY}`;
-    const lineHeight = Math.max(Math.round(fontSize * LINE_HEIGHT_RATIO), fontSize + 6);
-    const prepared = getPrepared(text, font);
-    const layout = layoutWithLines(prepared, width, lineHeight);
-    const blockWidth = Math.min(
-      width,
-      Math.max(...layout.lines.map((line) => Math.ceil(line.width)), 0) + 2
-    );
-    return {
-      fontSize,
-      lineHeight,
-      lines: layout.lines,
-      height: layout.height,
-      blockWidth,
-    };
-  };
-
-  let low = MIN_FONT_SIZE;
-  let high = MAX_FONT_SIZE;
-  let best = fitForSize(MIN_FONT_SIZE);
-
-  while (high - low > 0.5) {
-    const mid = (low + high) / 2;
-    const candidate = fitForSize(mid);
-
-    if (candidate.height <= height) {
-      best = candidate;
-      low = mid;
-    } else {
-      high = mid;
+    // Iterate until height fits or bound reached (text fit system)
+    while (container.scrollHeight > container.clientHeight && scale > minScale) {
+      scale -= 0.05;
+      container.style.setProperty('--font-scale', scale.toString());
     }
+  }, [text]);
+
+  if (!text || !text.trim()) {
+    return (
+      <div className={`story-viewport-shell ${className}`}>
+        <div className="story-text-content story-text-content--loading">
+          <p>Listening for the next omen...</p>
+        </div>
+      </div>
+    );
   }
 
-  return best;
-}
-
-export default function StoryViewport({ text, className }: StoryViewportProps) {
-  const { ref, size } = useElementSize<HTMLDivElement>();
-  const [isFontsReady, setIsFontsReady] = useState(typeof document === 'undefined');
-
-  useEffect(() => {
-    let cancelled = false;
-    document.fonts.ready.then(() => {
-      if (!cancelled) {
-        setIsFontsReady(true);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const layout = useMemo<StoryLayout | null>(() => {
-    if (!isFontsReady) return null;
-    return computeLayout(text, Math.max(size.width - 4, 0), Math.max(size.height - 4, 0));
-  }, [isFontsReady, size.height, size.width, text]);
+  // Split text by newlines into paragraphs
+  const paragraphs = text.split(/\r?\n+/).filter((p) => p.trim() !== '');
 
   return (
-    <div ref={ref} className={className}>
-      {layout ? (
-        <div
-          className="pretext-story"
-          style={{
-            fontSize: `${layout.fontSize}px`,
-            lineHeight: `${layout.lineHeight}px`,
-            width: `${layout.blockWidth}px`,
-          }}
-        >
-          {layout.lines.map((line, index) => (
-            <div key={`${index}-${line.start.segmentIndex}-${line.start.graphemeIndex}`} className="pretext-story-line">
-              {line.text || '\u00A0'}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="pretext-story pretext-story--loading">
-          <div className="pretext-story-line">Listening for the next omen...</div>
-        </div>
-      )}
+    <div ref={containerRef} className={`story-viewport-shell ${className}`}>
+      <div className="story-text-content">
+        {paragraphs.map((p, idx) => (
+          <p key={idx}>{p}</p>
+        ))}
+      </div>
     </div>
   );
 }
+

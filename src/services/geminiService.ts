@@ -4,6 +4,11 @@ let ai: GoogleGenAI | null = null;
 let currentAiKey = '';
 let apiKey = '';
 
+export let currentProvider: 'gemini' | 'groq' | 'openrouter' = 'gemini';
+export let currentModel: string = 'gemini-2.5-flash';
+export let groqKey = '';
+export let openRouterKey = '';
+
 type StoryResult = {
   text: string;
   signalStrength: number;
@@ -23,19 +28,32 @@ export function setApiKey(newKey: string) {
   apiKey = trimmedKey;
 }
 
+export function setAiConfig(provider: string, model: string, gKey: string, orKey: string) {
+  currentProvider = provider as any;
+  currentModel = model || 'gemini-2.5-flash';
+  groqKey = gKey?.trim() || '';
+  openRouterKey = orKey?.trim() || '';
+}
+
 export async function initializeGemini() {
   const currentKey = apiKey || '';
 
-  if (!currentKey) {
+  if (currentProvider === 'gemini' && !currentKey) {
     throw new Error("Gemini API key is missing. Add one in Settings before starting the adventure.");
   }
-
-  console.log(`[Gemini] Initializing with key: ${currentKey.substring(0, 4)}...${currentKey.substring(currentKey.length - 4)}`);
+  if (currentProvider === 'groq' && !groqKey) {
+    throw new Error("Groq API key is missing. Add one in Settings.");
+  }
+  if (currentProvider === 'openrouter' && !openRouterKey) {
+    throw new Error("OpenRouter API key is missing. Add one in Settings.");
+  }
 
   // Recreate the client whenever the key changes so we always use the latest saved value.
-  if (!ai || currentAiKey !== currentKey) {
-    ai = new GoogleGenAI({ apiKey: currentKey });
-    currentAiKey = currentKey;
+  if (currentProvider === 'gemini') {
+    if (!ai || currentAiKey !== currentKey) {
+      ai = new GoogleGenAI({ apiKey: currentKey });
+      currentAiKey = currentKey;
+    }
   }
 
   return ai;
@@ -153,10 +171,8 @@ export async function generateStoryPart(
   isHardMode?: boolean,
   isPermadeath?: boolean
 ) {
-  const aiClient = await initializeGemini();
+  await initializeGemini();
 
-  const model = "gemini-2.5-flash";
-  
   const playerContext = players.map(p => 
     `${p.displayName} (from ${p.hometown || 'unknown'}, fear: ${p.fear || 'unknown'})`
   ).join(', ');
@@ -188,6 +204,15 @@ export async function generateStoryPart(
     - **CUSTOM ACTIONS**: Incorporate player custom actions.
     - **NPCs**: Introduce and manage NPCs.
     - Respond strictly in JSON format matching the provided schema.
+
+    REQUIRED SCHEMA FORMAT:
+    {
+      "text": "The narrative text...",
+      "signalStrength": 1.0,
+      "choices": [{"id": "1", "text": "Choice 1"}],
+      "npcs": [{"id": "npc1", "name": "Name", "description": "Desc", "isNearby": true}]
+    }
+    ONLY return a valid JSON object. Do not include markdown or codeblocks.
   `;
 
   const prompt = customAction
@@ -196,48 +221,91 @@ export async function generateStoryPart(
       ? `The player chose: "${lastChoice}". Continue the story and provide new choices.`
       : `Start a new ${theme} D&D adventure. Set the scene and provide the first set of choices. Begin peacefully.`;
 
-  const contents = history.map(node => ({
-    role: node.authorId === 'ai' ? 'model' : 'user',
-    parts: [{ text: node.text }]
-  }));
-
-  if (contents.length === 0) {
-    contents.push({
-      role: 'user',
-      parts: [{ text: prompt }]
-    });
-  } else if (lastChoice || customAction) {
-    contents.push({
-      role: 'user',
-      parts: [{ text: prompt }]
-    });
-  }
-
   try {
-    const response = await aiClient.models.generateContent({
-      model,
-      contents,
-      config: {
-        systemInstruction,
-        temperature: 0.8,
-        responseMimeType: "application/json",
-        responseSchema: STORY_SCHEMA,
+    if (currentProvider === 'gemini') {
+      const contents = history.map(node => ({
+        role: node.authorId === 'ai' ? 'model' : 'user',
+        parts: [{ text: node.text }]
+      }));
+
+      if (contents.length === 0 || lastChoice || customAction) {
+        contents.push({ role: 'user', parts: [{ text: prompt }] });
       }
-    });
 
-    const rawText = response.text?.trim();
-    if (!rawText) {
-      throw new Error("Gemini returned an empty response.");
+      const response = await ai!.models.generateContent({
+        model: currentModel,
+        contents,
+        config: {
+          systemInstruction,
+          temperature: 0.8,
+          responseMimeType: "application/json",
+          responseSchema: STORY_SCHEMA,
+        }
+      });
+
+      const rawText = response.text?.trim();
+      if (!rawText) throw new Error("Gemini returned an empty response.");
+      return normalizeStoryResult(JSON.parse(rawText));
+    } else {
+      // Groq and OpenRouter
+      const messages = [
+        { role: "system", content: systemInstruction },
+        ...history.map(node => ({
+          role: node.authorId === 'ai' ? 'assistant' : 'user',
+          content: node.text
+        })),
+      ];
+
+      if (messages.length === 1 || lastChoice || customAction) {
+        messages.push({ role: "user", content: prompt });
+      }
+
+      const url = currentProvider === 'groq' 
+        ? "https://api.groq.com/openai/v1/chat/completions" 
+        : "https://openrouter.ai/api/v1/chat/completions";
+
+      const key = currentProvider === 'groq' ? groqKey : openRouterKey;
+
+      const body = {
+        model: currentModel,
+        messages,
+        temperature: 0.8,
+        response_format: { type: "json_object" }
+      };
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${key}`
+      };
+
+      if (currentProvider === 'openrouter') {
+        headers["HTTP-Referer"] = window.location.origin;
+        headers["X-Title"] = "Dungeon Masterz";
+      }
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`${currentProvider} API error: ${err}`);
+      }
+
+      const data = await res.json();
+      const rawText = data.choices?.[0]?.message?.content?.trim();
+      if (!rawText) throw new Error(`${currentProvider} returned an empty response.`);
+      return normalizeStoryResult(JSON.parse(rawText));
     }
-
-    return normalizeStoryResult(JSON.parse(rawText));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[Gemini] Story generation failed:", message);
+    console.error(`[${currentProvider}] Story generation failed:`, message);
     throw new Error(`Story generation failed: ${message}`);
   }
 }
-
+  
 export async function generateImage(prompt: string, aspectRatio: "1:1" | "16:9" | "9:16" = "1:1") {
   const width = aspectRatio === "16:9" ? 1280 : aspectRatio === "9:16" ? 720 : 800;
   const height = aspectRatio === "16:9" ? 720 : aspectRatio === "9:16" ? 1280 : 800;
