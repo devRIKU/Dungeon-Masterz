@@ -74,11 +74,12 @@ export async function generateStoryPart(
   theme: string = '80s',
   customSetting?: string,
   isHardMode?: boolean,
-  isPermadeath?: boolean
+  isPermadeath?: boolean,
+  modelName: string = "gemini-2.5-flash"
 ) {
   const aiClient = await initializeGemini();
   
-  const model = "gemini-3-flash-preview";
+  const model = modelName;
   
   const playerContext = players.map(p => 
     `${p.displayName} (from ${p.hometown || 'unknown'}, fear: ${p.fear || 'unknown'})`

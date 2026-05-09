@@ -55,6 +55,7 @@ const garbleText = (text: string, strength: number) => {
 
 export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [selectedModel, setSelectedModel] = useState<string>("gemini-2.5-flash");
   const [isOptionsCollapsed, setIsOptionsCollapsed] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -220,10 +221,23 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
+      if (u) {
+        const savedRoom = localStorage.getItem('saved_room_id');
+        if (savedRoom && !roomId) {
+          setRoomId(savedRoom);
+        }
+      }
     });
     
     return () => unsubscribe();
-  }, []);
+  }, [roomId]);
+
+  // Persist roomId
+  useEffect(() => {
+    if (roomId) {
+      localStorage.setItem('saved_room_id', roomId);
+    }
+  }, [roomId]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -350,7 +364,8 @@ export default function App() {
         theme,
         gameState.customSetting,
         gameState.isHardMode,
-        gameState.isPermadeath
+        gameState.isPermadeath,
+        selectedModel
       );
       
       // Generate initial scene image
@@ -414,7 +429,8 @@ export default function App() {
         theme,
         gameState.customSetting,
         gameState.isHardMode,
-        gameState.isPermadeath
+        gameState.isPermadeath,
+        selectedModel
       );
       
       // Generate scene image
@@ -721,8 +737,29 @@ export default function App() {
                       </button>
                     </div>
                     <p className="text-[10px] text-ink/40 italic ml-1">
-                      {user?.isAnonymous ? "Required for anonymous play." : "Stored securely in your account."}
+                      {user?.isAnonymous ? "Required for anonymous play." : "Stored securely locally."}
                     </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">AI Model</label>
+                    <div className="relative">
+                      <select
+                        value={selectedModel}
+                        onChange={(e) => setSelectedModel(e.target.value)}
+                        className="w-full appearance-none bg-ink/5 border border-border rounded-2xl px-4 py-3 pr-10 focus:outline-none focus:border-accent/50 transition-all font-medium text-ink text-sm"
+                      >
+                        <option value="gemini-3.1-flash">Gemini 3.1 Flash</option>
+                        <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite</option>
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                        <option value="gemma4-30b">Gemma 4 30B</option>
+                      </select>
+                      <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-ink/40">
+                        <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                          <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path>
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1502,9 +1539,19 @@ export default function App() {
                         </div>
                       )}
                       
-                      <div className="prose prose-lg prose-ink max-w-none">
+                      <div className="prose prose-lg prose-ink max-w-none relative group/text">
                         <p className="text-2xl md:text-3xl leading-relaxed font-medium italic tracking-tight text-ink/90 first-letter:text-6xl first-letter:font-display first-letter:font-bold first-letter:mr-3 first-letter:float-left first-letter:text-accent">
                           {node.text}
+                          {isLast && (
+                            <button
+                              onClick={playStoryAudio}
+                              disabled={isAudioLoading}
+                              className="ml-4 inline-flex items-center justify-center p-2 rounded-full bg-ink/5 hover:bg-accent hover:text-white transition-all shadow-sm text-ink/60"
+                              title="Text to Speech"
+                            >
+                              {isAudioLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Volume2 className="w-5 h-5" />}
+                            </button>
+                          )}
                         </p>
                       </div>
                     </motion.div>
