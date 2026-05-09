@@ -2,7 +2,6 @@
 export class SoundManager {
   private ctx: AudioContext | null = null;
   private voiceSource: AudioBufferSourceNode | null = null;
-  private voiceNodes: AudioNode[] = [];
 
   private reverbBuffer: AudioBuffer | null = null;
 
@@ -110,80 +109,48 @@ export class SoundManager {
       
       const source = this.ctx.createBufferSource();
       source.buffer = audioBuffer;
-      source.playbackRate.value = 0.97;
-
-      const master = this.ctx.createGain();
-      master.gain.value = 0.92;
-
+      
+      // --- MYSTERIOUS AUDIO CHAIN ---
+      
+      // 1. Low-pass filter for a "distant/muffled" feel
       const filter = this.ctx.createBiquadFilter();
       filter.type = 'lowpass';
-      filter.frequency.value = 2400;
-      filter.Q.value = 1.4;
+      filter.frequency.value = 3500;
 
-      const resonant = this.ctx.createBiquadFilter();
-      resonant.type = 'bandpass';
-      resonant.frequency.value = 640;
-      resonant.Q.value = 0.9;
-
-      const compressor = this.ctx.createDynamicsCompressor();
-      compressor.threshold.value = -28;
-      compressor.knee.value = 14;
-      compressor.ratio.value = 6;
-      compressor.attack.value = 0.01;
-      compressor.release.value = 0.24;
-
+      // 2. Reverb for "void" atmosphere
       const reverb = this.createReverb();
       const reverbGain = this.ctx.createGain();
-      reverbGain.gain.value = 0.26;
+      reverbGain.gain.value = 0.4;
 
+      // 3. Echo/Delay
       const delay = this.ctx.createDelay();
-      delay.delayTime.value = 0.19;
+      delay.delayTime.value = 0.15;
       const delayGain = this.ctx.createGain();
-      delayGain.gain.value = 0.18;
+      delayGain.gain.value = 0.2;
 
-      const tremolo = this.ctx.createGain();
-      tremolo.gain.value = 0.78;
-      const lfo = this.ctx.createOscillator();
-      const lfoDepth = this.ctx.createGain();
-      lfo.frequency.value = 4.2;
-      lfoDepth.gain.value = 0.08;
-
+      // Connect dry signal
       source.connect(filter);
-      filter.connect(resonant);
-      resonant.connect(compressor);
-      compressor.connect(tremolo);
-      tremolo.connect(master);
-      master.connect(this.ctx.destination);
+      filter.connect(this.ctx.destination);
 
-      lfo.connect(lfoDepth);
-      lfoDepth.connect(tremolo.gain);
-      lfo.start();
-
+      // Connect reverb
       if (reverb) {
-        compressor.connect(reverb);
+        filter.connect(reverb);
         reverb.connect(reverbGain);
-        reverbGain.connect(master);
+        reverbGain.connect(this.ctx.destination);
       }
 
-      compressor.connect(delay);
+      // Connect delay
+      filter.connect(delay);
       delay.connect(delayGain);
-      delayGain.connect(master);
-      delayGain.connect(delay);
+      delayGain.connect(this.ctx.destination);
       
       source.onended = () => {
         if (this.voiceSource === source) {
-          try {
-            lfo.stop();
-          } catch (e) {
-            // no-op
-          }
           this.voiceSource = null;
-          this.voiceNodes = [];
         }
       };
       
       this.voiceSource = source;
-      this.voiceNodes = [master, filter, resonant, compressor, reverbGain, delay, delayGain, tremolo, lfo, lfoDepth];
       source.start();
     } catch (e) {
       console.error('Failed to play voice audio', e);
@@ -199,7 +166,6 @@ export class SoundManager {
       }
       this.voiceSource = null;
     }
-    this.voiceNodes = [];
   }
 }
 
