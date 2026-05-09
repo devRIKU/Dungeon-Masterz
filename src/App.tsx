@@ -382,9 +382,9 @@ export default function App() {
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
       if (errMsg.includes("GEMINI_API_KEY") || errMsg.toLowerCase().includes("api key") || errMsg.includes("403") || errMsg.includes("400")) {
-        setError("A Gemini API Key is required. Please select one when prompted or enter it in Settings.");
+        setError(`API Key Error: ${errMsg}`);
       } else {
-        setError("Failed to start the adventure. Please try again.");
+        setError(`Failed to start: ${errMsg}`);
       }
       await updateGameStateInFirestore(roomId, { isGenerating: false });
     }
@@ -447,9 +447,9 @@ export default function App() {
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
       if (errMsg.includes("GEMINI_API_KEY") || errMsg.toLowerCase().includes("api key") || errMsg.includes("403") || errMsg.includes("400")) {
-        setError("A Gemini API Key is required. Please select one when prompted or enter it in Settings.");
+        setError(`API Key Error: ${errMsg}`);
       } else {
-        setError("The DM is momentarily speechless. Try again.");
+        setError(`DM Error: ${errMsg}`);
       }
       await updateGameStateInFirestore(roomId, { isGenerating: false });
     }
@@ -508,9 +508,10 @@ export default function App() {
       console.error("Audio generation failed:", err);
       const errMsg = err instanceof Error ? err.message : String(err);
       if (errMsg.includes("GEMINI_API_KEY") || errMsg.toLowerCase().includes("api key") || errMsg.includes("403") || errMsg.includes("400")) {
-        setError("A Gemini API Key is required. Please select one when prompted or enter it in Settings.");
+        setError(`API Key Error: ${errMsg}`);
         setIsSettingsOpen(true);
       } else {
+        console.error(`Audio Error: ${errMsg}`);
         // Fallback to local speech if Gemini fails
         speakText(gameState.currentText);
       }
@@ -536,7 +537,9 @@ export default function App() {
       console.error(err);
       const errMsg = err instanceof Error ? err.message : String(err);
       if (errMsg.includes("GEMINI_API_KEY") || errMsg.toLowerCase().includes("api key") || errMsg.includes("403") || errMsg.includes("400")) {
-        setError("GEMINI_API_KEY is missing or invalid. Please check your configuration.");
+        setError(`API Key Error: ${errMsg}`);
+      } else {
+        setError(`Art Error: ${errMsg}`);
       }
     } finally {
       setIsGeneratingArt(false);

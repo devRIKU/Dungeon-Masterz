@@ -143,12 +143,17 @@ export async function generateStoryPart(
     config: {
       systemInstruction,
       responseMimeType: "application/json",
-      responseSchema: STORY_SCHEMA,
-      tools: [{ googleSearch: {} }]
+      responseSchema: STORY_SCHEMA
     }
   });
 
-  return JSON.parse(response.text);
+  const responseText = response.text || "{}";
+  try {
+    return JSON.parse(responseText);
+  } catch (parseError) {
+    console.error("Failed to parse JSON from Gemini:", responseText);
+    throw new Error("Failed to parse response from DM. The AI may have gotten confused.");
+  }
 }
 
 export async function generateImage(prompt: string, aspectRatio: "1:1" | "16:9" | "9:16" = "1:1") {
@@ -166,7 +171,7 @@ export async function generateAudio(text: string) {
   const aiClient = await initializeGemini();
   
   const response = await aiClient.models.generateContent({
-    model: "gemini-2.5-flash-preview-tts",
+    model: "gemini-3.1-flash-tts-preview",
     contents: [{ parts: [{ text: `Deliver this in a slow, ethereal, and hauntingly mysterious voice, as if speaking from another dimension: ${text}` }] }],
     config: {
       responseModalities: [Modality.AUDIO],
