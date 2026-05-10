@@ -86,13 +86,13 @@ export async function generateStoryPart(
   ).join(', ');
 
   const systemInstruction = `
-    You are an expert Dungeon Master for a supernatural adventure.
+    You are an expert Dungeon Master for a beautifully melancholic and mysterious adventure.
     
     Current Theme: ${theme}
     
     Setting Guidelines based on Theme:
+    - fantasy: Deeply inspired by "Frieren: Beyond Journey's End" and "The Apothecary Diaries". Emphasize the passage of time, enduring memories, subtle and ancient magic, quiet melancholy, and the fleeting beauty of life. Incorporate meticulous deduction, medical herbalism, courtly intrigue, and quiet mysteries.
     - 80s: Inspired by "Stranger Things". 1984, small-town nostalgia, synth music, government conspiracy, Upside Down.
-    - fantasy: High fantasy, dragons, magic, ancient ruins, dark lords, epic quests.
     - cyberpunk: Neon-drenched future, mega-corps, hacking, cybernetics, rain-slicked streets, high tech low life.
     - horror: Gothic horror, haunted mansions, eldritch terrors, survival, psychological tension.
     
@@ -102,16 +102,16 @@ export async function generateStoryPart(
 
     Players:
     - The current party consists of: ${playerContext}.
-    - Incorporate their fears into the narrative.
+    - Incorporate their fears into the narrative delicately.
     
     General Guidelines:
-    - The narrative should be eerie, mysterious, and occasionally action-packed.
-    - **PACING**: Keep the pacing slow and deliberate.
-    - **START**: Begin with a peaceful scene that slowly hints at mystery.
-    - **PLACES**: Use Google Search for real-world details if relevant.
+    - The narrative should be atmospheric, thoughtful, and occasionally action-packed, favoring quiet contemplation over constant combat.
+    - **PACING**: Keep the pacing slow, deliberate, and deeply atmospheric. Give time to appreciate small moments.
+    - **START**: Begin with a peaceful scene that slowly hints at mystery, lost history, or a subtle anomaly.
+    - **PLACES**: Describe environments with care, emphasizing age, history, nature, and the subtle traces of people who lived there.
     - **COMMUNICATION**: Determine "signalStrength" (0.0 to 1.0).
-    - **CUSTOM ACTIONS**: Incorporate player custom actions.
-    - **NPCs**: Introduce and manage NPCs.
+    - **CUSTOM ACTIONS**: Incorporate player custom actions gracefully.
+    - **NPCs**: Introduce and manage NPCs with rich, albeit sometimes hidden, inner lives.
     - Respond strictly in JSON format matching the provided schema.
   `;
 
@@ -169,6 +169,62 @@ export async function generateImage(prompt: string, aspectRatio: "1:1" | "16:9" 
 }
 
 export async function generateAudio(text: string) {
+  // Try Puter.js first
+  if (typeof window !== 'undefined' && (window as any).puter) {
+    try {
+      const puter = (window as any).puter;
+      
+      // Auto sign into puter using the currently logged in google account if needed
+      // Note: puter.auth.signIn() will prompt the user if not signed in
+      if (!puter.auth.isSignedIn()) {
+        await puter.auth.signIn();
+      }
+
+      // Add a timeout to puter fetch
+      const puterPromise = puter.ai.txt2speech(
+        `Deliver this in a slow, ethereal, and hauntingly mysterious voice, as if speaking from another dimension: ${text}`,
+        { model: 'gemini-3.1-flash-tts-preview', voice: 'Charon' }
+      );
+      
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Puter TTS timeout")), 15000));
+      const audioResult: any = await Promise.race([puterPromise, timeoutPromise]);
+      
+      if (audioResult instanceof HTMLAudioElement || (audioResult && typeof audioResult.play === 'function')) {
+        return audioResult as HTMLAudioElement;
+      }
+      
+      let blob: Blob;
+      if (audioResult instanceof Blob) {
+        blob = audioResult;
+      } else if (audioResult instanceof ArrayBuffer) {
+        blob = new Blob([audioResult]);
+      } else if (typeof audioResult === 'string' || audioResult?.src) {
+        const url = typeof audioResult === 'string' ? audioResult : audioResult.src;
+        const resp = await fetch(url);
+        blob = await resp.blob();
+      } else if (audioResult?.blob) {
+        // if it has a blob method
+        blob = typeof audioResult.blob === 'function' ? await audioResult.blob() : await audioResult.blob;
+      } else {
+        throw new Error("Unknown Puter TTS return type");
+      }
+
+      // Convert blob to base64
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const dataUrl = reader.result as string;
+          resolve(dataUrl.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (err) {
+      console.warn("Puter.js TTS failed, falling back to direct API:", err);
+    }
+  }
+
+  // Fallback to direct SDK
   const aiClient = await initializeGemini();
   
   const response = await aiClient.models.generateContent({

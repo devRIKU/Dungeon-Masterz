@@ -71,6 +71,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isAudioLoading, setIsAudioLoading] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [ambientVolume, setAmbientVolume] = useState(0.3);
+  const ambientAudioRef = useRef<HTMLAudioElement | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isPartyOpen, setIsPartyOpen] = useState(false);
   const [isAdventureSettingsOpen, setIsAdventureSettingsOpen] = useState(false);
@@ -83,13 +85,26 @@ export default function App() {
   // Audio Engine for Mysterious Voice
   const audioContextRef = useRef<AudioContext | null>(null);
   
-  const playMysteriousAudio = async (base64Data: string) => {
+  const playMysteriousAudio = async (base64Data: string | HTMLAudioElement) => {
+    if (base64Data instanceof HTMLAudioElement || (base64Data && typeof (base64Data as any).play === 'function')) {
+      const audioEl = base64Data as HTMLAudioElement;
+      // Play directly if it's from Puter, as it's already an HTMLAudioElement. 
+      // Wrapping with AudioFX could cause CORS exceptions if the audio isn't crossorigin="anonymous"
+      try {
+        await audioEl.play();
+      } catch (err) {
+        console.warn("Failed to play Puter audio directly:", err);
+      }
+      return;
+    }
+
     if (!audioContextRef.current) {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
     const ctx = audioContextRef.current;
     
     try {
+      if (typeof base64Data !== 'string') return;
       const binaryString = window.atob(base64Data);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
@@ -511,6 +526,45 @@ export default function App() {
     await updateGameStateInFirestore(roomId, { players: updatedPlayers });
   };
 
+  // Ambient Audio System
+  const ambientSounds: Record<string, string> = {
+    'Horror': 'https://actions.google.com/sounds/v1/horror/creepy_wind.ogg',
+    'Fantasy': 'https://actions.google.com/sounds/v1/ambiences/forest_crickets.ogg',
+    '80s': 'https://actions.google.com/sounds/v1/science_fiction/alien_spaceship_console.ogg',
+    'SciFi': 'https://actions.google.com/sounds/v1/science_fiction/spaceship_engine.ogg',
+    'Cyberpunk': 'https://actions.google.com/sounds/v1/science_fiction/spaceship_engine.ogg',
+    'Western': 'https://actions.google.com/sounds/v1/ambiences/fire.ogg',
+    'default': 'https://actions.google.com/sounds/v1/ambiences/night_walk.ogg'
+  };
+
+  useEffect(() => {
+    if (!ambientAudioRef.current) {
+      ambientAudioRef.current = new Audio();
+      ambientAudioRef.current.loop = true;
+    }
+    const audio = ambientAudioRef.current;
+    
+    if (gameState) {
+      const currentThemeName = gameState.theme || 'default';
+      const src = ambientSounds[currentThemeName] || ambientSounds['default'];
+      
+      if (audio.src !== src) {
+        audio.src = src;
+        audio.play().catch(() => console.warn("Auto-play prevented for ambient audio"));
+      } else if (audio.paused) {
+        audio.play().catch(() => console.warn("Auto-play prevented"));
+      }
+    } else {
+      audio.pause();
+    }
+  }, [gameState?.theme, gameState]);
+
+  useEffect(() => {
+    if (ambientAudioRef.current) {
+      ambientAudioRef.current.volume = ambientVolume;
+    }
+  }, [ambientVolume]);
+
   const playStoryAudio = async () => {
     if (!gameState?.currentText || isAudioLoading) return;
     
@@ -742,6 +796,19 @@ export default function App() {
                   </div>
                   
                   <div className="space-y-2">
+                    <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">Ambient Sound Volume</label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={ambientVolume}
+                      onChange={(e) => setAmbientVolume(parseFloat(e.target.value))}
+                      className="w-full accent-accent bg-ink/10 h-2 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
                     <label className="text-[10px] font-display font-bold uppercase tracking-[0.2em] text-ink/40 ml-1">AI Model</label>
                     <div className="relative">
                       <select
@@ -956,6 +1023,16 @@ export default function App() {
               </button>
               <button 
                 onClick={() => {
+                  setIsSettingsOpen(true);
+                  soundManager.playClick();
+                }}
+                className="p-2.5 glass rounded-xl hover:scale-110 transition-all text-ink/60"
+                title="Settings"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+              <button 
+                onClick={() => {
                   auth.signOut();
                   soundManager.playClick();
                 }}
@@ -1071,6 +1148,15 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-1 sm:gap-3">
+          <button
+            onClick={playStoryAudio}
+            disabled={isAudioLoading || gameState?.isGenerating}
+            className="p-2 sm:p-2.5 hover:bg-ink/5 rounded-xl border border-border transition-all text-ink/60 hover:text-accent disabled:opacity-50"
+            title="Read Story (Text-to-Speech)"
+          >
+            {isAudioLoading ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /> : <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />}
+          </button>
+          
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className="p-2 sm:p-2.5 hover:bg-ink/5 rounded-xl border border-border transition-all"
